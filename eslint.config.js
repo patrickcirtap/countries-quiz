@@ -20,11 +20,9 @@ export default tseslint.config(
       globals: globals.browser,
     },
   },
-  // Config files run in Node, not the browser.
   {
     files: ['vite.config.ts'],
     languageOptions: { globals: globals.node },
   },
-  // Disable formatting-related rules; Prettier owns formatting.
   prettier,
 )
