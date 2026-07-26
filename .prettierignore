@@ -2,3 +2,6 @@ node_modules
 dist
 coverage
 package-lock.json
+
+# Minified data asset, not hand-edited
+public/countries.geojson

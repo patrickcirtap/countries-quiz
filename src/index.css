@@ -1,0 +1,41 @@
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  /* The map is the whole page; nothing should scroll behind it. */
+  overflow: hidden;
+}
+
+.map-root {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh; /* dvh keeps it correct under mobile browser chrome */
+}
+
+.map {
+  width: 100%;
+  height: 100%;
+}
+
+/* No tile layer is used, so the Leaflet background is the ocean. */
+.leaflet-container {
+  background: #d3e7ff;
+}
+
+.map-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #d3e7ff;
+  color: #333333;
+  font-family: system-ui, sans-serif;
+  font-size: 1.1rem;
+}
