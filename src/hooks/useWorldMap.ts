@@ -3,6 +3,11 @@ import * as L from 'leaflet';
 
 export type MapStatus = 'loading' | 'ready' | 'error';
 
+export interface CountryProperties {
+  name: string;
+  iso_a3: string;
+}
+
 const WORLD_BOUNDS: L.LatLngBoundsExpression = [
   [-90, -180],
   [90, 180],
@@ -23,9 +28,18 @@ const COUNTRY_STYLE: L.PathOptions = {
   opacity: 1,
 };
 
-export function useWorldMap() {
+interface UseWorldMapOptions {
+  onMapClick?: () => void;
+}
+
+export function useWorldMap({ onMapClick }: UseWorldMapOptions = {}) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [status, setStatus] = useState<MapStatus>('loading');
+  const onMapClickRef = useRef(onMapClick);
+
+  useEffect(() => {
+    onMapClickRef.current = onMapClick;
+  }, [onMapClick]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -43,6 +57,12 @@ export function useWorldMap() {
     map.fitBounds(INITIAL_VIEW_BOUNDS);
     map.zoomIn(ZOOM_BOOST, { animate: false });
 
+    const handleMapClick = () => {
+      // Leaflet's zoom buttons refocus the map on click; defer so we win the focus.
+      setTimeout(() => onMapClickRef.current?.(), 0);
+    };
+    container.addEventListener('click', handleMapClick, true);
+
     let isCancelled = false;
     const controller = new AbortController();
 
@@ -55,7 +75,7 @@ export function useWorldMap() {
       })
       .then((data) => {
         if (isCancelled) return;
-        L.geoJSON(data, { style: COUNTRY_STYLE }).addTo(map);
+        L.geoJSON<CountryProperties>(data, { style: COUNTRY_STYLE }).addTo(map);
         setStatus('ready');
       })
       .catch((err) => {
@@ -67,6 +87,7 @@ export function useWorldMap() {
     return () => {
       isCancelled = true;
       controller.abort();
+      container.removeEventListener('click', handleMapClick, true);
       map.remove();
     };
   }, []);

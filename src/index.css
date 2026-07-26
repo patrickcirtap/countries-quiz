@@ -22,6 +22,22 @@ body {
   height: 100%;
 }
 
+.country-input {
+  position: absolute;
+  top: 10px;
+  left: 50px;
+  z-index: 1000;
+  box-sizing: border-box;
+  width: 24rem;
+  max-width: calc(100% - 60px);
+  padding: 7px 10px;
+  font-family: system-ui, sans-serif;
+  font-size: 1rem;
+  border: 2px solid rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
 /* No tile layer is used, so the Leaflet background is the ocean. */
 .leaflet-container {
   background: #d3e7ff;

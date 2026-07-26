@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { WorldMap } from './WorldMap';
 
 vi.mock('leaflet', () => {
@@ -51,5 +51,54 @@ describe('WorldMap', () => {
     await waitFor(() =>
       expect(screen.getByText(/could not load/i)).toBeInTheDocument(),
     );
+  });
+
+  it('logs the typed country after the debounce delay', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    render(<WorldMap />);
+
+    fireEvent.change(
+      screen.getByRole('textbox', { name: /enter a country/i }),
+      {
+        target: { value: '  France  ' },
+      },
+    );
+
+    await waitFor(
+      () => expect(logSpy).toHaveBeenCalledWith('Input:', 'France'),
+      { timeout: 1000 },
+    );
+    logSpy.mockRestore();
+  });
+
+  it('focuses the input when the map is clicked', async () => {
+    render(<WorldMap />);
+    const input = screen.getByRole('textbox', { name: /enter a country/i });
+    input.blur();
+    expect(input).not.toHaveFocus();
+
+    fireEvent.click(screen.getByTestId('world-map'));
+    await waitFor(() => expect(input).toHaveFocus());
+
+    await waitFor(() =>
+      expect(screen.queryByText(/loading/i)).not.toBeInTheDocument(),
+    );
+  });
+
+  it('does not refocus on coarse-pointer (touch) devices', async () => {
+    const spy = vi
+      .spyOn(window, 'matchMedia')
+      .mockReturnValue({ matches: false } as unknown as MediaQueryList);
+    render(<WorldMap />);
+    const input = screen.getByRole('textbox', { name: /enter a country/i });
+    input.blur();
+
+    fireEvent.click(screen.getByTestId('world-map'));
+
+    await waitFor(() =>
+      expect(screen.queryByText(/loading/i)).not.toBeInTheDocument(),
+    );
+    expect(input).not.toHaveFocus();
+    spy.mockRestore();
   });
 });
