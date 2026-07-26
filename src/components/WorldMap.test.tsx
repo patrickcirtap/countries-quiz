@@ -37,9 +37,9 @@ afterEach(() => {
 describe('WorldMap', () => {
   it('shows a loading state, then reveals the map once data loads', async () => {
     render(<WorldMap />);
-    expect(screen.getByText(/loading map/i)).toBeInTheDocument();
+    expect(screen.getByText(/loading/i)).toBeInTheDocument();
     await waitFor(() =>
-      expect(screen.queryByText(/loading map/i)).not.toBeInTheDocument(),
+      expect(screen.queryByText(/loading/i)).not.toBeInTheDocument(),
     );
     expect(screen.getByTestId('world-map')).toBeInTheDocument();
   });
