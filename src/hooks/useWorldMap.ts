@@ -1,11 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import * as L from 'leaflet';
+import type { CountriesData, CountryProperties } from '../data/countries';
 
-export type MapStatus = 'loading' | 'ready' | 'error';
+interface GuessedLabel {
+  fullName: string;
+  centreCoords: [number, number];
+}
 
-export interface CountryProperties {
-  name: string;
-  iso_a3: string;
+interface UseWorldMapOptions {
+  onMapClick?: () => void;
 }
 
 const WORLD_BOUNDS: L.LatLngBoundsExpression = [
@@ -28,14 +31,24 @@ const COUNTRY_STYLE: L.PathOptions = {
   opacity: 1,
 };
 
-interface UseWorldMapOptions {
-  onMapClick?: () => void;
-}
+// Matches the original app's "guessed" styling.
+const GUESSED_STYLE: L.PathOptions = {
+  fillColor: '#ff6666',
+  fillOpacity: 0.7,
+  color: '#ff0000',
+  weight: 2,
+  opacity: 1,
+};
 
-export function useWorldMap({ onMapClick }: UseWorldMapOptions = {}) {
+export function useWorldMap(
+  data: CountriesData | null,
+  { onMapClick }: UseWorldMapOptions = {},
+) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const [status, setStatus] = useState<MapStatus>('loading');
   const onMapClickRef = useRef(onMapClick);
+  const mapRef = useRef<L.Map | null>(null);
+  const layersRef = useRef(new Map<string, L.Layer>());
+  const labelsRef = useRef(new Map<string, L.Tooltip>());
 
   useEffect(() => {
     onMapClickRef.current = onMapClick;
@@ -43,7 +56,7 @@ export function useWorldMap({ onMapClick }: UseWorldMapOptions = {}) {
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!container) return;
+    if (!container || !data) return;
 
     const map = L.map(container, {
       minZoom: 1,
@@ -54,6 +67,7 @@ export function useWorldMap({ onMapClick }: UseWorldMapOptions = {}) {
       attributionControl: false,
       zoomSnap: 0.25,
     });
+    mapRef.current = map;
     map.fitBounds(INITIAL_VIEW_BOUNDS);
     map.zoomIn(ZOOM_BOOST, { animate: false });
 
@@ -63,34 +77,46 @@ export function useWorldMap({ onMapClick }: UseWorldMapOptions = {}) {
     };
     container.addEventListener('click', handleMapClick, true);
 
-    let isCancelled = false;
-    const controller = new AbortController();
-
-    fetch(`${import.meta.env.BASE_URL}countries.geojson`, {
-      signal: controller.signal,
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json() as Promise<GeoJSON.GeoJsonObject>;
-      })
-      .then((data) => {
-        if (isCancelled) return;
-        L.geoJSON<CountryProperties>(data, { style: COUNTRY_STYLE }).addTo(map);
-        setStatus('ready');
-      })
-      .catch((err) => {
-        if (isCancelled) return;
-        console.error('Failed to load map data:', err);
-        setStatus('error');
-      });
+    const layers = layersRef.current;
+    const labels = labelsRef.current;
+    L.geoJSON<CountryProperties>(data, {
+      style: COUNTRY_STYLE,
+      onEachFeature: (feature, layer) => {
+        layers.set(feature.properties.isoName, layer);
+      },
+    }).addTo(map);
 
     return () => {
-      isCancelled = true;
-      controller.abort();
       container.removeEventListener('click', handleMapClick, true);
       map.remove();
+      mapRef.current = null;
+      layers.clear();
+      labels.clear();
     };
+  }, [data]);
+
+  const markGuessed = useCallback((isoName: string, label: GuessedLabel) => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const layer = layersRef.current.get(isoName);
+    if (layer && 'setStyle' in layer) {
+      (layer as L.Path).setStyle(GUESSED_STYLE);
+    }
+
+    if (!labelsRef.current.has(isoName)) {
+      const tooltip = L.tooltip({
+        permanent: true,
+        direction: 'center',
+        className: 'country-label',
+        interactive: false,
+      })
+        .setLatLng(label.centreCoords)
+        .setContent(label.fullName)
+        .addTo(map);
+      labelsRef.current.set(isoName, tooltip);
+    }
   }, []);
 
-  return { containerRef, status };
+  return { containerRef, markGuessed };
 }

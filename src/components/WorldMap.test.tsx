@@ -1,20 +1,67 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import {
+  render,
+  screen,
+  waitFor,
+  fireEvent,
+  act,
+} from '@testing-library/react';
 import { WorldMap } from './WorldMap';
+import type { CountriesData } from '../data/countries';
 
 vi.mock('leaflet', () => {
   const layer = {
     addTo: vi.fn().mockReturnThis(),
     getBounds: vi.fn(() => ({})),
+    setStyle: vi.fn().mockReturnThis(),
   };
   const map = {
     fitBounds: vi.fn().mockReturnThis(),
     zoomIn: vi.fn().mockReturnThis(),
     remove: vi.fn(),
   };
-  const L = { map: vi.fn(() => map), geoJSON: vi.fn(() => layer) };
+  const tooltip = {
+    setLatLng: vi.fn().mockReturnThis(),
+    setContent: vi.fn().mockReturnThis(),
+    addTo: vi.fn().mockReturnThis(),
+  };
+  const L = {
+    map: vi.fn(() => map),
+    geoJSON: vi.fn(() => layer),
+    tooltip: vi.fn(() => tooltip),
+  };
   return { ...L, default: L };
 });
+
+const MOCK_DATA: CountriesData = {
+  type: 'FeatureCollection',
+  features: [
+    {
+      type: 'Feature',
+      properties: { isoName: 'FRA', fullName: 'France', centreCoords: [46, 2] },
+      geometry: { type: 'Point', coordinates: [2, 46] },
+    },
+    {
+      type: 'Feature',
+      properties: {
+        isoName: 'BRA',
+        fullName: 'Brazil',
+        centreCoords: [-10, -55],
+      },
+      geometry: { type: 'Point', coordinates: [-55, -10] },
+    },
+    {
+      type: 'Feature',
+      properties: {
+        isoName: 'USA',
+        fullName: 'United States of America',
+        alternativeNames: ['America'],
+        centreCoords: [39, -98],
+      },
+      geometry: { type: 'Point', coordinates: [-98, 39] },
+    },
+  ],
+};
 
 function mockFetch(response: Partial<Response>) {
   vi.stubGlobal(
@@ -24,10 +71,7 @@ function mockFetch(response: Partial<Response>) {
 }
 
 beforeEach(() => {
-  mockFetch({
-    ok: true,
-    json: () => Promise.resolve({ type: 'FeatureCollection', features: [] }),
-  });
+  mockFetch({ ok: true, json: () => Promise.resolve(MOCK_DATA) });
 });
 
 afterEach(() => {
@@ -53,36 +97,16 @@ describe('WorldMap', () => {
     );
   });
 
-  it('logs the typed country after the debounce delay', async () => {
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-    render(<WorldMap />);
-
-    fireEvent.change(
-      screen.getByRole('textbox', { name: /enter a country/i }),
-      {
-        target: { value: '  France  ' },
-      },
-    );
-
-    await waitFor(
-      () => expect(logSpy).toHaveBeenCalledWith('Input:', 'France'),
-      { timeout: 1000 },
-    );
-    logSpy.mockRestore();
-  });
-
   it('focuses the input when the map is clicked', async () => {
     render(<WorldMap />);
-    const input = screen.getByRole('textbox', { name: /enter a country/i });
-    input.blur();
-    expect(input).not.toHaveFocus();
-
-    fireEvent.click(screen.getByTestId('world-map'));
-    await waitFor(() => expect(input).toHaveFocus());
-
     await waitFor(() =>
       expect(screen.queryByText(/loading/i)).not.toBeInTheDocument(),
     );
+    const input = screen.getByRole('textbox', { name: /enter a country/i });
+    input.blur();
+
+    fireEvent.click(screen.getByTestId('world-map'));
+    await waitFor(() => expect(input).toHaveFocus());
   });
 
   it('does not refocus on coarse-pointer (touch) devices', async () => {
@@ -90,15 +114,35 @@ describe('WorldMap', () => {
       .spyOn(window, 'matchMedia')
       .mockReturnValue({ matches: false } as unknown as MediaQueryList);
     render(<WorldMap />);
+    await waitFor(() =>
+      expect(screen.queryByText(/loading/i)).not.toBeInTheDocument(),
+    );
     const input = screen.getByRole('textbox', { name: /enter a country/i });
     input.blur();
 
     fireEvent.click(screen.getByTestId('world-map'));
-
-    await waitFor(() =>
-      expect(screen.queryByText(/loading/i)).not.toBeInTheDocument(),
-    );
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
     expect(input).not.toHaveFocus();
     spy.mockRestore();
+  });
+
+  it('marks a country and updates the counter when guessed correctly', async () => {
+    render(<WorldMap />);
+    await waitFor(() =>
+      expect(screen.getByTestId('counter')).toHaveTextContent('0 / 3'),
+    );
+
+    fireEvent.change(
+      screen.getByRole('textbox', { name: /enter a country/i }),
+      {
+        target: { value: 'France' },
+      },
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId('counter')).toHaveTextContent('1 / 3'),
+    );
   });
 });

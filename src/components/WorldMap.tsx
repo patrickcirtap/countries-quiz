@@ -1,12 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useWorldMap } from '../hooks/useWorldMap';
-import { useDebouncedValue } from '../hooks/useDebouncedValue';
+import { useGameState } from '../hooks/useGameState';
+import { useDebouncedCallback } from '../hooks/useDebouncedCallback';
 
-const INPUT_DEBOUNCE_MS = 400;
+const DEBOUNCE_MS = 400;
 
 export function WorldMap() {
   const inputRef = useRef<HTMLInputElement>(null);
-  const { containerRef, status } = useWorldMap({
+  const { status, data, guessedCount, total, guess } = useGameState();
+  const { containerRef, markGuessed } = useWorldMap(data, {
     onMapClick: () => {
       // Only refocus on desktop; on touch devices this would pop the keyboard.
       if (window.matchMedia('(pointer: fine)').matches) {
@@ -15,12 +17,14 @@ export function WorldMap() {
     },
   });
   const [input, setInput] = useState('');
-  const debouncedInput = useDebouncedValue(input, INPUT_DEBOUNCE_MS);
 
-  useEffect(() => {
-    const query = debouncedInput.trim();
-    if (query) console.log('Input:', query);
-  }, [debouncedInput]);
+  const runGuess = useDebouncedCallback((value: string) => {
+    const hit = guess(value);
+    if (hit) {
+      markGuessed(hit.isoName, hit);
+      setInput('');
+    }
+  }, DEBOUNCE_MS);
 
   return (
     <div className="map-root">
@@ -37,10 +41,17 @@ export function WorldMap() {
         placeholder="Enter a country..."
         aria-label="Enter a country"
         value={input}
-        onChange={(event) => setInput(event.target.value)}
+        onChange={(event) => {
+          const value = event.target.value;
+          setInput(value);
+          runGuess(value);
+        }}
         maxLength={50}
         autoFocus
       />
+      <div className="counter" data-testid="counter" aria-live="polite">
+        {guessedCount} / {total}
+      </div>
       {status !== 'ready' && (
         <div className="map-overlay" role="status">
           {status === 'loading' ? 'Loading...' : 'Could not load the map.'}

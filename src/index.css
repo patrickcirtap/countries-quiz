@@ -20,6 +20,7 @@ body {
 .map {
   width: 100%;
   height: 100%;
+  background: #d3e7ff; /* ocean, shown until Leaflet initialises */
 }
 
 .country-input {
@@ -54,4 +55,45 @@ body {
   color: #333333;
   font-family: system-ui, sans-serif;
   font-size: 1.1rem;
+}
+
+.counter {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1000;
+  padding: 4px 12px;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 4px;
+  font-family: system-ui, sans-serif;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #222222;
+}
+
+/* Country name shown on a country once it is guessed. */
+.leaflet-tooltip.country-label {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  color: #000000;
+  font-weight: 700;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.leaflet-tooltip.country-label::before {
+  display: none;
+}
+
+/* On narrow screens the wide input would overlap the top-right counter,
+   so drop the counter to the bottom-right. */
+@media (max-width: 600px) {
+  .counter {
+    top: auto;
+    bottom: 12px;
+    right: 12px;
+  }
 }
