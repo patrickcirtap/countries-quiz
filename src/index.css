@@ -169,6 +169,85 @@ body {
   transform: translateX(16px);
 }
 
+/* Hint / detail popup opened by clicking a country. */
+.country-popup .leaflet-popup-content-wrapper {
+  background: #111111;
+  color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.4);
+}
+
+.country-popup .leaflet-popup-tip {
+  background: #111111;
+}
+
+.country-popup .leaflet-popup-content {
+  margin: 14px 20px;
+  font-family: system-ui, sans-serif;
+  font-size: 0.95rem;
+}
+
+.country-popup .leaflet-popup-close-button {
+  color: #bbbbbb;
+}
+
+.country-popup .leaflet-popup-close-button:hover {
+  color: #ffffff;
+}
+
+.country-popup-title,
+.country-popup-name {
+  margin: 0 0 12px;
+}
+
+.country-popup-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.country-popup-line {
+  display: block;
+  margin: 0;
+  padding: 4px 0;
+  white-space: nowrap;
+}
+
+.country-popup-line + .country-popup-line {
+  margin-top: 8px;
+}
+
+/* Both children share one grid cell, so the cell is as wide as the widest of
+   them and the popup never resizes when a hint is revealed. */
+.country-popup-value {
+  display: inline-grid;
+  vertical-align: bottom;
+}
+
+.country-popup-value > * {
+  grid-area: 1 / 1;
+  text-align: left;
+}
+
+/* visibility, not display: the hidden text must still reserve its space. */
+.country-popup-value-hidden {
+  visibility: hidden;
+}
+
+/* Hint lines are buttons but should read as the same text as the rest. */
+.country-popup-hint {
+  width: 100%;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.country-popup-hint:hover {
+  color: #ffdddd;
+}
+
 /* Sits above the map and every map-edge control. */
 .dialog-backdrop {
   position: absolute;

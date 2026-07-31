@@ -14,6 +14,8 @@ export interface CountryTarget extends GuessedLabel {
 
 interface UseWorldMapOptions {
   onMapClick?: () => void;
+  onCountryClick?: (isoName: string, latlng: L.LatLng) => void;
+  onPopupClose?: () => void;
 }
 
 const WORLD_BOUNDS: L.LatLngBoundsExpression = [
@@ -69,21 +71,26 @@ const REVEALED_STYLE: L.PathOptions = {
 
 export function useWorldMap(
   data: CountriesData | null,
-  { onMapClick }: UseWorldMapOptions = {},
+  { onMapClick, onCountryClick, onPopupClose }: UseWorldMapOptions = {},
 ) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const onMapClickRef = useRef(onMapClick);
+  const onCountryClickRef = useRef(onCountryClick);
+  const onPopupCloseRef = useRef(onPopupClose);
   const mapRef = useRef<L.Map | null>(null);
   const layersRef = useRef(new Map<string, L.Layer>());
   const labelsRef = useRef(new Map<string, L.Tooltip>());
   const markersRef = useRef(new Map<string, L.Marker>());
+  const popupRef = useRef<L.Popup | null>(null);
   const initialViewRef = useRef<{ center: L.LatLng; zoom: number } | null>(
     null,
   );
 
   useEffect(() => {
     onMapClickRef.current = onMapClick;
-  }, [onMapClick]);
+    onCountryClickRef.current = onCountryClick;
+    onPopupCloseRef.current = onPopupClose;
+  }, [onMapClick, onCountryClick, onPopupClose]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -117,14 +124,25 @@ export function useWorldMap(
     L.geoJSON<CountryProperties>(data, {
       style: COUNTRY_STYLE,
       onEachFeature: (feature, layer) => {
-        layers.set(feature.properties.isoName, layer);
+        const { isoName } = feature.properties;
+        layers.set(isoName, layer);
+        // e.latlng is where the pointer landed, so the popup opens there
+        // rather than at the country's centre.
+        layer.on('click', (event: L.LeafletMouseEvent) => {
+          onCountryClickRef.current?.(isoName, event.latlng);
+        });
       },
     }).addTo(map);
 
+    const handlePopupClose = () => onPopupCloseRef.current?.();
+    map.on('popupclose', handlePopupClose);
+
     return () => {
       container.removeEventListener('click', handleMapClick, true);
+      map.off('popupclose', handlePopupClose);
       map.remove();
       mapRef.current = null;
+      popupRef.current = null;
       initialViewRef.current = null;
       layers.clear();
       labels.clear();
@@ -199,6 +217,25 @@ export function useWorldMap(
     }
   }, []);
 
+  // One popup instance is reused, so moving it between countries never fires
+  // the popupclose that tearing it down and rebuilding it would.
+  const openPopup = useCallback(
+    (latlng: L.LatLngExpression, content: HTMLElement) => {
+      const map = mapRef.current;
+      if (!map) return;
+      if (!popupRef.current) {
+        popupRef.current = L.popup({ className: 'country-popup' });
+      }
+      popupRef.current.setLatLng(latlng).setContent(content).openOn(map);
+    },
+    [],
+  );
+
+  // Re-measure after the content changes size (a hint being revealed).
+  const refreshPopup = useCallback(() => {
+    if (popupRef.current?.isOpen()) popupRef.current.update();
+  }, []);
+
   // Give up: grey out everything still missing, name it, and pin it.
   const revealRemaining = useCallback(
     (targets: CountryTarget[]) => {
@@ -219,5 +256,7 @@ export function useWorldMap(
     showMarkers,
     hideMarkers,
     revealRemaining,
+    openPopup,
+    refreshPopup,
   };
 }

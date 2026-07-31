@@ -13,25 +13,36 @@ import type { CountriesData } from '../data/countries';
 const INITIAL_CENTRE = { lat: 12, lng: 0 };
 const INITIAL_ZOOM = 2.75;
 
-const { mapInstance, markerInstance, layerInstance } = vi.hoisted(() => ({
-  mapInstance: {
-    fitBounds: vi.fn().mockReturnThis(),
-    zoomIn: vi.fn().mockReturnThis(),
-    setView: vi.fn().mockReturnThis(),
-    getCenter: vi.fn(() => ({ lat: 12, lng: 0 })),
-    getZoom: vi.fn(() => 2.75),
-    remove: vi.fn(),
-  },
-  markerInstance: {
-    addTo: vi.fn().mockReturnThis(),
-    remove: vi.fn(),
-  },
-  layerInstance: {
-    addTo: vi.fn().mockReturnThis(),
-    getBounds: vi.fn(() => ({})),
-    setStyle: vi.fn().mockReturnThis(),
-  },
-}));
+const { mapInstance, markerInstance, layerInstance, popupInstance } =
+  vi.hoisted(() => ({
+    mapInstance: {
+      fitBounds: vi.fn().mockReturnThis(),
+      zoomIn: vi.fn().mockReturnThis(),
+      setView: vi.fn().mockReturnThis(),
+      getCenter: vi.fn(() => ({ lat: 12, lng: 0 })),
+      getZoom: vi.fn(() => 2.75),
+      remove: vi.fn(),
+      on: vi.fn(),
+      off: vi.fn(),
+    },
+    markerInstance: {
+      addTo: vi.fn().mockReturnThis(),
+      remove: vi.fn(),
+    },
+    layerInstance: {
+      addTo: vi.fn().mockReturnThis(),
+      getBounds: vi.fn(() => ({})),
+      setStyle: vi.fn().mockReturnThis(),
+      on: vi.fn(),
+    },
+    popupInstance: {
+      setLatLng: vi.fn().mockReturnThis(),
+      setContent: vi.fn().mockReturnThis(),
+      openOn: vi.fn().mockReturnThis(),
+      isOpen: vi.fn(() => true),
+      update: vi.fn(),
+    },
+  }));
 
 vi.mock('leaflet', () => {
   const tooltip = {
@@ -53,6 +64,7 @@ vi.mock('leaflet', () => {
       },
     ),
     tooltip: vi.fn(() => tooltip),
+    popup: vi.fn(() => popupInstance),
     icon: vi.fn(() => ({ _icon: true })),
     marker: vi.fn(() => markerInstance),
     Browser: { touch: false },
@@ -404,6 +416,86 @@ describe('WorldMap', () => {
     );
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  const shownValue = (line: Element) =>
+    line.querySelector(
+      '.country-popup-value > b:not(.country-popup-value-hidden)',
+    )?.textContent;
+  const hiddenValue = (line: Element) =>
+    line.querySelector('.country-popup-value-hidden')?.textContent;
+
+  // The hook registers one click handler per feature, in MOCK_DATA order.
+  function clickCountry(index: number) {
+    const handler = layerInstance.on.mock.calls.filter(
+      ([event]) => event === 'click',
+    )[index][1] as (e: { latlng: unknown }) => void;
+    act(() => handler({ latlng: { lat: 46, lng: 2 } }));
+  }
+
+  it('opens a hint popup where an unguessed country was clicked', async () => {
+    await renderReadyMap();
+    clickCountry(0);
+
+    // Anchored to the click position, not the country's centre.
+    expect(popupInstance.setLatLng).toHaveBeenCalledWith({ lat: 46, lng: 2 });
+    expect(popupInstance.openOn).toHaveBeenCalled();
+
+    const popup = popupInstance.setContent.mock.calls[0][0] as HTMLElement;
+    expect(popup).toHaveTextContent('Click for hints:');
+    expect(popup.textContent).toContain('First letter');
+    expect(popup.textContent).toContain('Capital city');
+    const lines = popup.querySelectorAll('.country-popup-hint');
+    expect(lines).toHaveLength(2);
+    // Both hidden until asked for...
+    expect(shownValue(lines[0])).toBe('???');
+    expect(shownValue(lines[1])).toBe('???');
+    // ...but each answer is already in the layout, reserving its width.
+    expect(hiddenValue(lines[0])).toBe('F -  -  -  -  - ');
+    expect(hiddenValue(lines[1])).toBe('Paris');
+  });
+
+  it('reveals each hint only when its own line is clicked', async () => {
+    await renderReadyMap();
+    clickCountry(0);
+    const popup = popupInstance.setContent.mock.calls[0][0] as HTMLElement;
+    const [nameLine, capitalLine] = Array.from(
+      popup.querySelectorAll('.country-popup-hint'),
+    );
+
+    const measuredOnOpen = popupInstance.update.mock.calls.length;
+
+    fireEvent.click(nameLine);
+    expect(shownValue(nameLine)).toBe('F -  -  -  -  - ');
+    expect(shownValue(capitalLine)).toBe('???');
+
+    fireEvent.click(capitalLine);
+    expect(shownValue(capitalLine)).toBe('Paris');
+
+    // The width already allowed for both answers, so Leaflet never re-measures
+    // and the popup cannot grow as hints are revealed.
+    expect(popupInstance.update).toHaveBeenCalledTimes(measuredOnOpen);
+  });
+
+  it('shows name and capital straight away for a guessed country', async () => {
+    await renderReadyMap();
+    fireEvent.change(
+      screen.getByRole('textbox', { name: /enter a country/i }),
+      { target: { value: 'France' } },
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('counter')).toHaveTextContent('1 / 3'),
+    );
+
+    clickCountry(0);
+    const calls = popupInstance.setContent.mock.calls;
+    const popup = calls[calls.length - 1][0] as HTMLElement;
+
+    expect(popup.textContent).toContain('France');
+    expect(popup.textContent).toContain('Paris');
+    expect(popup.textContent).not.toContain('Click for hints');
+    expect(popup.textContent).not.toContain('???');
+    expect(popup.querySelectorAll('.country-popup-hint')).toHaveLength(0);
   });
 
   it('marks a country and updates the counter when guessed correctly', async () => {

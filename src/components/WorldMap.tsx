@@ -1,9 +1,11 @@
 import { useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Browser } from 'leaflet';
 import { ControlsMenu } from './ControlsMenu';
 import { HintDialog } from './HintDialog';
 import { ConfirmDialog } from './ConfirmDialog';
 import { CompletionDialog } from './CompletionDialog';
+import { CountryPopup } from './CountryPopup';
 import { useWorldMap } from '../hooks/useWorldMap';
 import { useGameState } from '../hooks/useGameState';
 import { useDebouncedCallback } from '../hooks/useDebouncedCallback';
@@ -12,8 +14,11 @@ const DEBOUNCE_MS = 400;
 
 export function WorldMap() {
   const inputRef = useRef<HTMLInputElement>(null);
-  const { status, data, guessedCount, total, unguessed, guess } =
+  const { status, data, countries, guessedCount, total, unguessed, guess } =
     useGameState();
+  // A detached node React portals into; Leaflet then owns where it is shown.
+  const [popupNode] = useState(() => document.createElement('div'));
+  const [popupIsoName, setPopupIsoName] = useState<string | null>(null);
   // Only refocus on desktop; on touch devices this would pop the keyboard.
   const focusInputOnDesktop = () => {
     if (window.matchMedia('(pointer: fine)').matches) {
@@ -27,7 +32,18 @@ export function WorldMap() {
     showMarkers,
     hideMarkers,
     revealRemaining,
-  } = useWorldMap(data, { onMapClick: focusInputOnDesktop });
+    openPopup,
+    refreshPopup,
+  } = useWorldMap(data, {
+    onMapClick: focusInputOnDesktop,
+    onCountryClick: (isoName, latlng) => {
+      setPopupIsoName(isoName);
+      // Opened here rather than in an effect so Leaflet has the click position;
+      // React fills the node in the same commit, before Leaflet measures it.
+      openPopup(latlng, popupNode);
+    },
+    onPopupClose: () => setPopupIsoName(null),
+  });
   const [input, setInput] = useState('');
   const [namesOn, setNamesOn] = useState(true);
   const [markersOn, setMarkersOn] = useState(false);
@@ -38,6 +54,7 @@ export function WorldMap() {
 
   // Derived, not stored: no effect is needed to notice the game is won.
   const isComplete = total > 0 && guessedCount === total && !hasGivenUp;
+  const popupCountry = popupIsoName ? countries[popupIsoName] : null;
 
   const runGuess = useDebouncedCallback((value: string) => {
     const hit = guess(value);
@@ -123,6 +140,18 @@ export function WorldMap() {
           }}
         />
       )}
+      {popupCountry &&
+        createPortal(
+          <CountryPopup
+            // Remount per country so a revealed hint never carries over.
+            key={popupIsoName}
+            fullName={popupCountry.fullName}
+            capitalCity={popupCountry.capitalCity}
+            isGuessed={popupCountry.isGuessed}
+            onResize={refreshPopup}
+          />,
+          popupNode,
+        )}
       {isComplete && !completionSeen && (
         <CompletionDialog onClose={() => setCompletionSeen(true)} />
       )}

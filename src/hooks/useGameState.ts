@@ -10,8 +10,9 @@ export interface GuessResult {
   centreCoords: [number, number];
 }
 
-interface CountryGameState {
+export interface CountryGameState {
   fullName: string;
+  capitalCity: string;
   matchNames: Set<string>;
   centreCoords: [number, number];
   isGuessed: boolean;
@@ -26,6 +27,7 @@ function buildCountries(data: CountriesData): Countries {
     const names = [p.fullName, ...(p.alternativeNames ?? [])];
     countries[p.isoName] = {
       fullName: p.fullName,
+      capitalCity: p.capitalCity,
       matchNames: new Set(names.map(normaliseString)),
       centreCoords: p.centreCoords,
       isGuessed: false,
@@ -107,5 +109,5 @@ export function useGameState() {
     return null;
   }, []);
 
-  return { status, data, guessedCount, total, unguessed, guess };
+  return { status, data, countries, guessedCount, total, unguessed, guess };
 }
