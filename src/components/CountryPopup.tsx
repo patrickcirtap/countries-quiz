@@ -4,7 +4,8 @@ import { firstLetterHint } from '../lib/firstLetterHint';
 interface CountryPopupProps {
   fullName: string;
   capitalCity: string;
-  isGuessed: boolean;
+  /** True once the answer may be shown outright: guessed, or the game is over. */
+  revealed: boolean;
   onResize: () => void;
 }
 
@@ -27,7 +28,7 @@ function HintValue({ revealed, value }: { revealed: boolean; value: string }) {
 export function CountryPopup({
   fullName,
   capitalCity,
-  isGuessed,
+  revealed,
   onResize,
 }: CountryPopupProps) {
   const [nameShown, setNameShown] = useState(false);
@@ -37,11 +38,11 @@ export function CountryPopup({
   // filled this node, so ask it to measure again once the content is in.
   useEffect(() => {
     onResize();
-  }, [isGuessed, onResize]);
+  }, [revealed, onResize]);
 
   const capital = capitalCity || 'Unknown';
 
-  if (isGuessed) {
+  if (revealed) {
     return (
       <>
         <p className="country-popup-name">{fullName}</p>

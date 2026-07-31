@@ -9,10 +9,12 @@ import { CountryPopup } from './CountryPopup';
 import { useWorldMap } from '../hooks/useWorldMap';
 import { useGameState } from '../hooks/useGameState';
 import { useDebouncedCallback } from '../hooks/useDebouncedCallback';
+import { useUnloadWarning } from '../hooks/useUnloadWarning';
 
 const DEBOUNCE_MS = 400;
 
 export function WorldMap() {
+  useUnloadWarning();
   const inputRef = useRef<HTMLInputElement>(null);
   const { status, data, countries, guessedCount, total, unguessed, guess } =
     useGameState();
@@ -147,7 +149,8 @@ export function WorldMap() {
             key={popupIsoName}
             fullName={popupCountry.fullName}
             capitalCity={popupCountry.capitalCity}
-            isGuessed={popupCountry.isGuessed}
+            // Giving up reveals the answers without marking anything guessed.
+            revealed={popupCountry.isGuessed || hasGivenUp}
             onResize={refreshPopup}
           />,
           popupNode,

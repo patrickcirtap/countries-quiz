@@ -498,6 +498,36 @@ describe('WorldMap', () => {
     expect(popup.querySelectorAll('.country-popup-hint')).toHaveLength(0);
   });
 
+  it('shows the answer outright for any country once the game is given up', async () => {
+    await renderReadyMap();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /additional options/i }),
+    );
+    fireEvent.click(screen.getByRole('menuitem', { name: /give up/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^yes$/i }));
+
+    // France was never guessed, but giving up revealed it.
+    clickCountry(0);
+    const calls = popupInstance.setContent.mock.calls;
+    const popup = calls[calls.length - 1][0] as HTMLElement;
+
+    expect(popup.textContent).toContain('France');
+    expect(popup.textContent).toContain('Paris');
+    expect(popup.textContent).not.toContain('Click for hints');
+    expect(popup.textContent).not.toContain('???');
+    expect(popup.querySelectorAll('.country-popup-hint')).toHaveLength(0);
+  });
+
+  it('warns before the page is closed or reloaded', async () => {
+    await renderReadyMap();
+
+    const event = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+  });
+
   it('marks a country and updates the counter when guessed correctly', async () => {
     await renderReadyMap();
     expect(screen.getByTestId('counter')).toHaveTextContent('0 / 3');
