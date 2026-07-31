@@ -7,6 +7,8 @@ interface ControlsMenuProps {
   markersOn: boolean;
   onToggleMarkers: () => void;
   onShowHint: () => void;
+  onGiveUp: () => void;
+  hasGivenUp: boolean;
 }
 
 export function ControlsMenu({
@@ -16,6 +18,8 @@ export function ControlsMenu({
   markersOn,
   onToggleMarkers,
   onShowHint,
+  onGiveUp,
+  hasGivenUp,
 }: ControlsMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -113,6 +117,8 @@ export function ControlsMenu({
             type="button"
             className="controls-menu-item controls-menu-item-danger"
             role="menuitem"
+            onClick={runAndClose(onGiveUp)}
+            disabled={hasGivenUp}
           >
             Give up
           </button>

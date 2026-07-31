@@ -8,9 +8,8 @@ interface GuessedLabel {
   centreCoords: [number, number];
 }
 
-export interface MarkerTarget {
+export interface CountryTarget extends GuessedLabel {
   isoName: string;
-  centreCoords: [number, number];
 }
 
 interface UseWorldMapOptions {
@@ -56,6 +55,15 @@ const GUESSED_STYLE: L.PathOptions = {
   fillOpacity: 0.7,
   color: '#ff0000',
   weight: 2,
+  opacity: 1,
+};
+
+// Matches the original app's "give up" styling for countries never guessed.
+const REVEALED_STYLE: L.PathOptions = {
+  fillColor: '#8a8a8a',
+  fillOpacity: 0.7,
+  color: '#ffffff',
+  weight: 1,
   opacity: 1,
 };
 
@@ -124,37 +132,46 @@ export function useWorldMap(
     };
   }, [data]);
 
-  const markGuessed = useCallback((isoName: string, label: GuessedLabel) => {
-    const map = mapRef.current;
-    if (!map) return;
-
+  const setStyle = useCallback((isoName: string, style: L.PathOptions) => {
     const layer = layersRef.current.get(isoName);
     if (layer && 'setStyle' in layer) {
-      (layer as L.Path).setStyle(GUESSED_STYLE);
-    }
-
-    // Markers flag what is still missing, so a guessed country drops its own.
-    const marker = markersRef.current.get(isoName);
-    if (marker) {
-      marker.remove();
-      markersRef.current.delete(isoName);
-    }
-
-    if (!labelsRef.current.has(isoName)) {
-      const tooltip = L.tooltip({
-        permanent: true,
-        direction: 'center',
-        className: 'country-label',
-        interactive: false,
-      })
-        .setLatLng(label.centreCoords)
-        .setContent(label.fullName)
-        .addTo(map);
-      labelsRef.current.set(isoName, tooltip);
+      (layer as L.Path).setStyle(style);
     }
   }, []);
 
-  const showMarkers = useCallback((targets: MarkerTarget[]) => {
+  const addLabel = useCallback((isoName: string, label: GuessedLabel) => {
+    const map = mapRef.current;
+    if (!map || labelsRef.current.has(isoName)) return;
+    const tooltip = L.tooltip({
+      permanent: true,
+      direction: 'center',
+      className: 'country-label',
+      interactive: false,
+    })
+      .setLatLng(label.centreCoords)
+      .setContent(label.fullName)
+      .addTo(map);
+    labelsRef.current.set(isoName, tooltip);
+  }, []);
+
+  const markGuessed = useCallback(
+    (isoName: string, label: GuessedLabel) => {
+      if (!mapRef.current) return;
+      setStyle(isoName, GUESSED_STYLE);
+
+      // Markers flag what is still missing, so a guessed country drops its own.
+      const marker = markersRef.current.get(isoName);
+      if (marker) {
+        marker.remove();
+        markersRef.current.delete(isoName);
+      }
+
+      addLabel(isoName, label);
+    },
+    [setStyle, addLabel],
+  );
+
+  const showMarkers = useCallback((targets: CountryTarget[]) => {
     const map = mapRef.current;
     if (!map) return;
     for (const { isoName, centreCoords } of targets) {
@@ -182,5 +199,25 @@ export function useWorldMap(
     }
   }, []);
 
-  return { containerRef, markGuessed, resetView, showMarkers, hideMarkers };
+  // Give up: grey out everything still missing, name it, and pin it.
+  const revealRemaining = useCallback(
+    (targets: CountryTarget[]) => {
+      if (!mapRef.current) return;
+      for (const target of targets) {
+        setStyle(target.isoName, REVEALED_STYLE);
+        addLabel(target.isoName, target);
+      }
+      showMarkers(targets);
+    },
+    [setStyle, addLabel, showMarkers],
+  );
+
+  return {
+    containerRef,
+    markGuessed,
+    resetView,
+    showMarkers,
+    hideMarkers,
+    revealRemaining,
+  };
 }

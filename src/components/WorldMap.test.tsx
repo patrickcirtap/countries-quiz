@@ -13,7 +13,7 @@ import type { CountriesData } from '../data/countries';
 const INITIAL_CENTRE = { lat: 12, lng: 0 };
 const INITIAL_ZOOM = 2.75;
 
-const { mapInstance, markerInstance } = vi.hoisted(() => ({
+const { mapInstance, markerInstance, layerInstance } = vi.hoisted(() => ({
   mapInstance: {
     fitBounds: vi.fn().mockReturnThis(),
     zoomIn: vi.fn().mockReturnThis(),
@@ -26,14 +26,14 @@ const { mapInstance, markerInstance } = vi.hoisted(() => ({
     addTo: vi.fn().mockReturnThis(),
     remove: vi.fn(),
   },
-}));
-
-vi.mock('leaflet', () => {
-  const layer = {
+  layerInstance: {
     addTo: vi.fn().mockReturnThis(),
     getBounds: vi.fn(() => ({})),
     setStyle: vi.fn().mockReturnThis(),
-  };
+  },
+}));
+
+vi.mock('leaflet', () => {
   const tooltip = {
     setLatLng: vi.fn().mockReturnThis(),
     setContent: vi.fn().mockReturnThis(),
@@ -41,7 +41,17 @@ vi.mock('leaflet', () => {
   };
   const L = {
     map: vi.fn(() => mapInstance),
-    geoJSON: vi.fn(() => layer),
+    // Real Leaflet calls onEachFeature per feature; the hook relies on that to
+    // build its isoName -> layer index, so the mock has to do it too.
+    geoJSON: vi.fn(
+      (
+        data: CountriesData,
+        options: { onEachFeature: (f: unknown, l: unknown) => void },
+      ) => {
+        data.features.forEach((f) => options.onEachFeature(f, layerInstance));
+        return layerInstance;
+      },
+    ),
     tooltip: vi.fn(() => tooltip),
     icon: vi.fn(() => ({ _icon: true })),
     marker: vi.fn(() => markerInstance),
@@ -109,6 +119,15 @@ afterEach(() => {
   mockBrowser.touch = false;
 });
 
+// The map is built in a passive effect, which React flushes after committing
+// the DOM. Waiting on the DOM alone can therefore win the race and assert
+// before Leaflet exists, so wait until the map has actually been created.
+async function renderReadyMap() {
+  const result = render(<WorldMap />);
+  await waitFor(() => expect(mapInstance.fitBounds).toHaveBeenCalled());
+  return result;
+}
+
 describe('WorldMap', () => {
   it('shows a loading state, then reveals the map once data loads', async () => {
     render(<WorldMap />);
@@ -129,10 +148,7 @@ describe('WorldMap', () => {
   });
 
   it('focuses the input when the map is clicked', async () => {
-    render(<WorldMap />);
-    await waitFor(() =>
-      expect(screen.queryByText(/loading/i)).not.toBeInTheDocument(),
-    );
+    await renderReadyMap();
     const input = screen.getByRole('textbox', { name: /enter a country/i });
     input.blur();
 
@@ -144,10 +160,7 @@ describe('WorldMap', () => {
     const spy = vi
       .spyOn(window, 'matchMedia')
       .mockReturnValue({ matches: false } as unknown as MediaQueryList);
-    render(<WorldMap />);
-    await waitFor(() =>
-      expect(screen.queryByText(/loading/i)).not.toBeInTheDocument(),
-    );
+    await renderReadyMap();
     const input = screen.getByRole('textbox', { name: /enter a country/i });
     input.blur();
 
@@ -163,28 +176,19 @@ describe('WorldMap', () => {
   // button has to follow the same flag to stay aligned with the zoom buttons.
   it('sizes the controls to match Leaflet on touch-capable browsers', async () => {
     mockBrowser.touch = true;
-    const { container } = render(<WorldMap />);
-    await waitFor(() =>
-      expect(screen.queryByText(/loading/i)).not.toBeInTheDocument(),
-    );
+    const { container } = await renderReadyMap();
     expect(container.querySelector('.map-root')).toHaveClass('map-root-touch');
   });
 
   it('uses Leaflet default control sizing otherwise', async () => {
-    const { container } = render(<WorldMap />);
-    await waitFor(() =>
-      expect(screen.queryByText(/loading/i)).not.toBeInTheDocument(),
-    );
+    const { container } = await renderReadyMap();
     expect(container.querySelector('.map-root')).not.toHaveClass(
       'map-root-touch',
     );
   });
 
   it('restores the initial framing when reset zoom is used', async () => {
-    render(<WorldMap />);
-    await waitFor(() =>
-      expect(screen.queryByText(/loading/i)).not.toBeInTheDocument(),
-    );
+    await renderReadyMap();
     expect(mapInstance.fitBounds).toHaveBeenCalledTimes(1);
 
     fireEvent.click(
@@ -203,10 +207,7 @@ describe('WorldMap', () => {
   });
 
   it('hides guessed country labels while names are toggled off', async () => {
-    const { container } = render(<WorldMap />);
-    await waitFor(() =>
-      expect(screen.queryByText(/loading/i)).not.toBeInTheDocument(),
-    );
+    const { container } = await renderReadyMap();
     const root = container.querySelector('.map-root');
     expect(root).not.toHaveClass('map-root-hide-labels');
 
@@ -236,10 +237,7 @@ describe('WorldMap', () => {
   });
 
   it('drops a marker on every unguessed country while markers are on', async () => {
-    render(<WorldMap />);
-    await waitFor(() =>
-      expect(screen.queryByText(/loading/i)).not.toBeInTheDocument(),
-    );
+    await renderReadyMap();
     expect(createMarker).not.toHaveBeenCalled();
 
     fireEvent.click(
@@ -269,10 +267,8 @@ describe('WorldMap', () => {
   });
 
   it('removes a marker once its country is guessed', async () => {
-    render(<WorldMap />);
-    await waitFor(() =>
-      expect(screen.getByTestId('counter')).toHaveTextContent('0 / 3'),
-    );
+    await renderReadyMap();
+    expect(screen.getByTestId('counter')).toHaveTextContent('0 / 3');
 
     fireEvent.click(
       screen.getByRole('button', { name: /additional options/i }),
@@ -294,10 +290,7 @@ describe('WorldMap', () => {
   });
 
   it('opens the hint dialog from the menu and closes it again', async () => {
-    render(<WorldMap />);
-    await waitFor(() =>
-      expect(screen.queryByText(/loading/i)).not.toBeInTheDocument(),
-    );
+    await renderReadyMap();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
     fireEvent.click(
@@ -314,11 +307,108 @@ describe('WorldMap', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  it('marks a country and updates the counter when guessed correctly', async () => {
-    render(<WorldMap />);
-    await waitFor(() =>
-      expect(screen.getByTestId('counter')).toHaveTextContent('0 / 3'),
+  it('asks for confirmation before giving up, and No changes nothing', async () => {
+    await renderReadyMap();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /additional options/i }),
     );
+    fireEvent.click(screen.getByRole('menuitem', { name: /give up/i }));
+
+    expect(
+      screen.getByText(/are you sure you want to give up\?/i),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /^no$/i }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(layerInstance.setStyle).not.toHaveBeenCalled();
+    expect(createMarker).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole('textbox', { name: /enter a country/i }),
+    ).toBeEnabled();
+  });
+
+  it('reveals every remaining country in grey with markers on Yes', async () => {
+    await renderReadyMap();
+    expect(screen.getByTestId('counter')).toHaveTextContent('0 / 3');
+
+    // Guess one so only two are left to reveal.
+    fireEvent.change(
+      screen.getByRole('textbox', { name: /enter a country/i }),
+      { target: { value: 'France' } },
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('counter')).toHaveTextContent('1 / 3'),
+    );
+    const stylesAfterGuess = layerInstance.setStyle.mock.calls.length;
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /additional options/i }),
+    );
+    fireEvent.click(screen.getByRole('menuitem', { name: /give up/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^yes$/i }));
+
+    // The two unguessed countries go grey; the guessed one keeps its red.
+    expect(layerInstance.setStyle).toHaveBeenCalledTimes(stylesAfterGuess + 2);
+    expect(layerInstance.setStyle).toHaveBeenLastCalledWith(
+      expect.objectContaining({ fillColor: '#8a8a8a', color: '#ffffff' }),
+    );
+    expect(createMarker).toHaveBeenCalledTimes(2);
+
+    // The game is over: no more guessing, and give up cannot run twice.
+    expect(
+      screen.getByRole('textbox', { name: /enter a country/i }),
+    ).toBeDisabled();
+    expect(screen.getByTestId('counter')).toHaveTextContent('1 / 3');
+    fireEvent.click(
+      screen.getByRole('button', { name: /additional options/i }),
+    );
+    expect(screen.getByRole('menuitem', { name: /give up/i })).toBeDisabled();
+  });
+
+  it('congratulates the player once every country is named', async () => {
+    await renderReadyMap();
+    const input = screen.getByRole('textbox', { name: /enter a country/i });
+
+    for (const [name, count] of [
+      ['France', '1 / 3'],
+      ['Brazil', '2 / 3'],
+      ['America', '3 / 3'],
+    ]) {
+      fireEvent.change(input, { target: { value: name } });
+      await waitFor(() =>
+        expect(screen.getByTestId('counter')).toHaveTextContent(count),
+      );
+    }
+
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent(
+      /congratulations! you named every country/i,
+    );
+
+    // Dismissing it leaves the finished map visible and does not bring it back.
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByTestId('counter')).toHaveTextContent('3 / 3');
+  });
+
+  it('does not congratulate before every country is named', async () => {
+    await renderReadyMap();
+
+    fireEvent.change(
+      screen.getByRole('textbox', { name: /enter a country/i }),
+      { target: { value: 'France' } },
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('counter')).toHaveTextContent('1 / 3'),
+    );
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('marks a country and updates the counter when guessed correctly', async () => {
+    await renderReadyMap();
+    expect(screen.getByTestId('counter')).toHaveTextContent('0 / 3');
 
     fireEvent.change(
       screen.getByRole('textbox', { name: /enter a country/i }),

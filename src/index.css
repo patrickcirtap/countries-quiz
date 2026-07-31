@@ -56,6 +56,11 @@ body {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
 }
 
+.country-input:disabled {
+  background: #ebebeb;
+  color: #777777;
+}
+
 .controls-menu {
   position: absolute;
   top: calc(var(--control-stack-bottom) + var(--control-gap));
@@ -118,8 +123,13 @@ body {
   cursor: pointer;
 }
 
-.controls-menu-item:hover {
+.controls-menu-item:hover:not(:disabled) {
   background: #f0f0f0;
+}
+
+.controls-menu-item:disabled {
+  color: #999999;
+  cursor: default;
 }
 
 .controls-menu-item-danger {
@@ -160,7 +170,7 @@ body {
 }
 
 /* Sits above the map and every map-edge control. */
-.hint-backdrop {
+.dialog-backdrop {
   position: absolute;
   inset: 0;
   z-index: 1100;
@@ -171,7 +181,7 @@ body {
   background: rgba(0, 0, 0, 0.4);
 }
 
-.hint-dialog {
+.dialog {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -192,19 +202,24 @@ body {
   border-radius: 4px;
 }
 
-.hint-text {
+.dialog-text {
   margin: 0;
   font-size: 1.1rem;
   font-weight: 600;
   color: #222222;
 }
 
-.hint-close {
-  min-width: 8rem;
+.dialog-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.dialog-button {
+  min-width: 7rem;
   min-height: 44px;
   padding: 8px 24px;
-  background: #ff6666;
-  color: #ffffff;
+  background: #e6e6e6;
+  color: #222222;
   border: none;
   border-radius: 4px;
   font: inherit;
@@ -213,7 +228,16 @@ body {
   cursor: pointer;
 }
 
-.hint-close:hover {
+.dialog-button:hover {
+  background: #d9d9d9;
+}
+
+.dialog-button-danger {
+  background: #ff6666;
+  color: #ffffff;
+}
+
+.dialog-button-danger:hover {
   background: #ff4d4d;
 }
 

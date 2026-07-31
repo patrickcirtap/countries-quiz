@@ -80,7 +80,11 @@ export function useGameState() {
     () =>
       Object.entries(countries)
         .filter(([, c]) => !c.isGuessed)
-        .map(([isoName, c]) => ({ isoName, centreCoords: c.centreCoords })),
+        .map(([isoName, c]) => ({
+          isoName,
+          fullName: c.fullName,
+          centreCoords: c.centreCoords,
+        })),
     [countries],
   );
 

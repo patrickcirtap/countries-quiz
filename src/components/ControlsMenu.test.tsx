@@ -10,8 +10,9 @@ let onResetZoom: Mock<() => void>;
 let onToggleNames: Mock<() => void>;
 let onToggleMarkers: Mock<() => void>;
 let onShowHint: Mock<() => void>;
+let onGiveUp: Mock<() => void>;
 
-function renderMenu(namesOn = true, markersOn = false) {
+function renderMenu(namesOn = true, markersOn = false, hasGivenUp = false) {
   return render(
     <ControlsMenu
       onResetZoom={onResetZoom}
@@ -20,6 +21,8 @@ function renderMenu(namesOn = true, markersOn = false) {
       markersOn={markersOn}
       onToggleMarkers={onToggleMarkers}
       onShowHint={onShowHint}
+      onGiveUp={onGiveUp}
+      hasGivenUp={hasGivenUp}
     />,
   );
 }
@@ -29,6 +32,7 @@ beforeEach(() => {
   onToggleNames = vi.fn();
   onToggleMarkers = vi.fn();
   onShowHint = vi.fn();
+  onGiveUp = vi.fn();
 });
 
 describe('ControlsMenu', () => {
@@ -53,6 +57,27 @@ describe('ControlsMenu', () => {
     ).toBeVisible();
     expect(screen.getByRole('menuitem', { name: /^hint$/i })).toBeVisible();
     expect(screen.getByRole('menuitem', { name: /give up/i })).toBeVisible();
+  });
+
+  it('requests give up and closes the menu', () => {
+    renderMenu();
+    openMenu();
+
+    fireEvent.click(screen.getByRole('menuitem', { name: /give up/i }));
+
+    expect(onGiveUp).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+  });
+
+  it('disables give up once the game is over', () => {
+    renderMenu(true, false, true);
+    openMenu();
+
+    const giveUp = screen.getByRole('menuitem', { name: /give up/i });
+    expect(giveUp).toBeDisabled();
+
+    fireEvent.click(giveUp);
+    expect(onGiveUp).not.toHaveBeenCalled();
   });
 
   it('requests the hint and closes the menu', () => {

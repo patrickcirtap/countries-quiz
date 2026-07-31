@@ -2,6 +2,8 @@ import { useRef, useState } from 'react';
 import { Browser } from 'leaflet';
 import { ControlsMenu } from './ControlsMenu';
 import { HintDialog } from './HintDialog';
+import { ConfirmDialog } from './ConfirmDialog';
+import { CompletionDialog } from './CompletionDialog';
 import { useWorldMap } from '../hooks/useWorldMap';
 import { useGameState } from '../hooks/useGameState';
 import { useDebouncedCallback } from '../hooks/useDebouncedCallback';
@@ -18,12 +20,24 @@ export function WorldMap() {
       inputRef.current?.focus();
     }
   };
-  const { containerRef, markGuessed, resetView, showMarkers, hideMarkers } =
-    useWorldMap(data, { onMapClick: focusInputOnDesktop });
+  const {
+    containerRef,
+    markGuessed,
+    resetView,
+    showMarkers,
+    hideMarkers,
+    revealRemaining,
+  } = useWorldMap(data, { onMapClick: focusInputOnDesktop });
   const [input, setInput] = useState('');
   const [namesOn, setNamesOn] = useState(true);
   const [markersOn, setMarkersOn] = useState(false);
   const [hintOpen, setHintOpen] = useState(false);
+  const [confirmGiveUp, setConfirmGiveUp] = useState(false);
+  const [hasGivenUp, setHasGivenUp] = useState(false);
+  const [completionSeen, setCompletionSeen] = useState(false);
+
+  // Derived, not stored: no effect is needed to notice the game is won.
+  const isComplete = total > 0 && guessedCount === total && !hasGivenUp;
 
   const runGuess = useDebouncedCallback((value: string) => {
     const hit = guess(value);
@@ -58,6 +72,7 @@ export function WorldMap() {
           runGuess(value);
         }}
         maxLength={50}
+        disabled={hasGivenUp}
         autoFocus
       />
       <ControlsMenu
@@ -79,6 +94,8 @@ export function WorldMap() {
           focusInputOnDesktop();
         }}
         onShowHint={() => setHintOpen(true)}
+        onGiveUp={() => setConfirmGiveUp(true)}
+        hasGivenUp={hasGivenUp}
       />
       <div className="counter" data-testid="counter" aria-live="polite">
         {guessedCount} / {total}
@@ -90,6 +107,24 @@ export function WorldMap() {
             focusInputOnDesktop();
           }}
         />
+      )}
+      {confirmGiveUp && (
+        <ConfirmDialog
+          message="Are you sure you want to give up?"
+          onCancel={() => {
+            setConfirmGiveUp(false);
+            focusInputOnDesktop();
+          }}
+          onConfirm={() => {
+            setConfirmGiveUp(false);
+            setHasGivenUp(true);
+            setMarkersOn(true);
+            revealRemaining(unguessed);
+          }}
+        />
+      )}
+      {isComplete && !completionSeen && (
+        <CompletionDialog onClose={() => setCompletionSeen(true)} />
       )}
       {status !== 'ready' && (
         <div className="map-overlay" role="status">

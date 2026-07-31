@@ -34,7 +34,7 @@ describe('HintDialog', () => {
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(onClose).toHaveBeenCalledTimes(2);
 
-    fireEvent.click(container.querySelector('.hint-backdrop') as Element);
+    fireEvent.click(container.querySelector('.dialog-backdrop') as Element);
     expect(onClose).toHaveBeenCalledTimes(3);
     unmount();
   });
