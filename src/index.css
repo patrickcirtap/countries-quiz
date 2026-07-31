@@ -15,6 +15,21 @@ body {
   width: 100%;
   height: 100vh;
   height: 100dvh; /* dvh keeps it correct under mobile browser chrome */
+
+  /* Mirrors Leaflet's control metrics so our menu button lines up under the
+     zoom buttons. */
+  --control-size: 26px;
+  --control-stack-bottom: 63px; /* 10px margin + 2 × 26px buttons + 1px divider */
+  --control-margin: 10px; /* Leaflet's own inset from the map edge */
+  --control-gap: 6px; /* spacing between the zoom control and our controls */
+}
+
+/* Leaflet sizes its controls up whenever Browser.touch is set, which tracks
+   touch/pointer-event support rather than pointer type — a desktop Chrome gets
+   the larger controls too. WorldMap reads that same flag to set this class. */
+.map-root-touch {
+  --control-size: 34px; /* 30px buttons + 2 × 2px border */
+  --control-stack-bottom: 75px; /* 10px margin + 61px bar + 2 × 2px border */
 }
 
 .map {
@@ -26,17 +41,180 @@ body {
 .country-input {
   position: absolute;
   top: 10px;
-  left: 50px;
+  left: calc(var(--control-margin) + var(--control-size) + var(--control-gap));
   z-index: 1000;
   box-sizing: border-box;
   width: 24rem;
-  max-width: calc(100% - 60px);
+  max-width: calc(
+    100% - 2 * var(--control-margin) - var(--control-size) - var(--control-gap)
+  );
   padding: 7px 10px;
   font-family: system-ui, sans-serif;
   font-size: 1rem;
   border: 2px solid rgba(0, 0, 0, 0.3);
   border-radius: 4px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+.controls-menu {
+  position: absolute;
+  top: calc(var(--control-stack-bottom) + var(--control-gap));
+  left: var(--control-margin);
+  z-index: 1000;
+  font-family: system-ui, sans-serif;
+}
+
+.controls-menu-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: var(--control-size);
+  height: var(--control-size);
+  padding: 0;
+  background: #ffffff;
+  background-clip: padding-box;
+  color: #000000;
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.controls-menu-button:hover {
+  background: #f4f4f4;
+}
+
+.controls-menu-panel {
+  position: absolute;
+  top: calc(var(--control-size) + var(--control-gap));
+  left: 0;
+  min-width: 10rem;
+  max-width: calc(100vw - 20px);
+  padding: 4px;
+  background: #ffffff;
+  background-clip: padding-box;
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.controls-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px; /* comfortable touch target */
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  border-radius: 3px;
+  font: inherit;
+  font-size: 0.95rem;
+  color: #222222;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.controls-menu-item:hover {
+  background: #f0f0f0;
+}
+
+.controls-menu-item-danger {
+  margin-top: 4px;
+  border-top: 1px solid #dddddd;
+  border-radius: 0 0 3px 3px;
+  color: #cc0000;
+}
+
+.controls-menu-switch {
+  position: relative;
+  flex: none;
+  width: 34px;
+  height: 18px;
+  background: #bbbbbb;
+  border-radius: 9px;
+  transition: background 0.15s ease;
+}
+
+.controls-menu-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  background: #ffffff;
+  border-radius: 50%;
+  transition: transform 0.15s ease;
+}
+
+[aria-checked='true'] .controls-menu-switch {
+  background: #ff6666;
+}
+
+[aria-checked='true'] .controls-menu-switch::after {
+  transform: translateX(16px);
+}
+
+/* Sits above the map and every map-edge control. */
+.hint-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.hint-dialog {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  max-width: 100%;
+  padding: 24px;
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+  font-family: system-ui, sans-serif;
+  text-align: center;
+}
+
+.hint-image {
+  width: 150px;
+  height: 150px;
+  max-width: 100%;
+  border-radius: 4px;
+}
+
+.hint-text {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #222222;
+}
+
+.hint-close {
+  min-width: 8rem;
+  min-height: 44px;
+  padding: 8px 24px;
+  background: #ff6666;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.hint-close:hover {
+  background: #ff4d4d;
 }
 
 /* No tile layer is used, so the Leaflet background is the ocean. */
@@ -86,6 +264,15 @@ body {
 
 .leaflet-tooltip.country-label::before {
   display: none;
+}
+
+/* Toggle names off. The labels stay on the map so they reappear instantly,
+   and so a country guessed while off is already in place when switched on.
+   Must be visibility, not display: Leaflet centres a tooltip by subtracting
+   half its measured size, and a display: none label measures zero, so it
+   would be anchored by its corner and sit off-centre once shown. */
+.map-root-hide-labels .leaflet-tooltip.country-label {
+  visibility: hidden;
 }
 
 /* On narrow screens the wide input would overlap the top-right counter,

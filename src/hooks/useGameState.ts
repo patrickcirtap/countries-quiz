@@ -76,6 +76,13 @@ export function useGameState() {
     () => Object.values(countries).filter((c) => c.isGuessed).length,
     [countries],
   );
+  const unguessed = useMemo(
+    () =>
+      Object.entries(countries)
+        .filter(([, c]) => !c.isGuessed)
+        .map(([isoName, c]) => ({ isoName, centreCoords: c.centreCoords })),
+    [countries],
+  );
 
   // Returns the matched country if this input newly guesses one, else null.
   const guess = useCallback((input: string): GuessResult | null => {
@@ -96,5 +103,5 @@ export function useGameState() {
     return null;
   }, []);
 
-  return { status, data, guessedCount, total, guess };
+  return { status, data, guessedCount, total, unguessed, guess };
 }

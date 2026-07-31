@@ -1,9 +1,15 @@
 import { useCallback, useEffect, useRef } from 'react';
 import * as L from 'leaflet';
+import markerIconUrl from '../assets/marker.png';
 import type { CountriesData, CountryProperties } from '../data/countries';
 
 interface GuessedLabel {
   fullName: string;
+  centreCoords: [number, number];
+}
+
+export interface MarkerTarget {
+  isoName: string;
   centreCoords: [number, number];
 }
 
@@ -22,6 +28,19 @@ const INITIAL_VIEW_BOUNDS: L.LatLngBoundsExpression = [
 ];
 
 const ZOOM_BOOST = 0.5;
+
+// The source pin is 128 × 198 with the point at the bottom centre, above about
+// 5px of transparent padding — hence the anchor sitting just short of the foot.
+const MARKER_ICON = L.icon({
+  iconUrl: markerIconUrl,
+  iconSize: [28, 43],
+  iconAnchor: [14, 42],
+});
+
+function applyInitialView(map: L.Map) {
+  map.fitBounds(INITIAL_VIEW_BOUNDS);
+  map.zoomIn(ZOOM_BOOST, { animate: false });
+}
 
 const COUNTRY_STYLE: L.PathOptions = {
   fillColor: '#ffffff',
@@ -49,6 +68,10 @@ export function useWorldMap(
   const mapRef = useRef<L.Map | null>(null);
   const layersRef = useRef(new Map<string, L.Layer>());
   const labelsRef = useRef(new Map<string, L.Tooltip>());
+  const markersRef = useRef(new Map<string, L.Marker>());
+  const initialViewRef = useRef<{ center: L.LatLng; zoom: number } | null>(
+    null,
+  );
 
   useEffect(() => {
     onMapClickRef.current = onMapClick;
@@ -68,8 +91,11 @@ export function useWorldMap(
       zoomSnap: 0.25,
     });
     mapRef.current = map;
-    map.fitBounds(INITIAL_VIEW_BOUNDS);
-    map.zoomIn(ZOOM_BOOST, { animate: false });
+    applyInitialView(map);
+    // Record where the framing actually landed. Recomputing it later would not
+    // match: fitBounds applies synchronously only while the map is unloaded,
+    // so a repeat call animates and the follow-up zoomIn reads a stale zoom.
+    initialViewRef.current = { center: map.getCenter(), zoom: map.getZoom() };
 
     const handleMapClick = () => {
       // Leaflet's zoom buttons refocus the map on click; defer so we win the focus.
@@ -79,6 +105,7 @@ export function useWorldMap(
 
     const layers = layersRef.current;
     const labels = labelsRef.current;
+    const markers = markersRef.current;
     L.geoJSON<CountryProperties>(data, {
       style: COUNTRY_STYLE,
       onEachFeature: (feature, layer) => {
@@ -90,8 +117,10 @@ export function useWorldMap(
       container.removeEventListener('click', handleMapClick, true);
       map.remove();
       mapRef.current = null;
+      initialViewRef.current = null;
       layers.clear();
       labels.clear();
+      markers.clear();
     };
   }, [data]);
 
@@ -102,6 +131,13 @@ export function useWorldMap(
     const layer = layersRef.current.get(isoName);
     if (layer && 'setStyle' in layer) {
       (layer as L.Path).setStyle(GUESSED_STYLE);
+    }
+
+    // Markers flag what is still missing, so a guessed country drops its own.
+    const marker = markersRef.current.get(isoName);
+    if (marker) {
+      marker.remove();
+      markersRef.current.delete(isoName);
     }
 
     if (!labelsRef.current.has(isoName)) {
@@ -118,5 +154,33 @@ export function useWorldMap(
     }
   }, []);
 
-  return { containerRef, markGuessed };
+  const showMarkers = useCallback((targets: MarkerTarget[]) => {
+    const map = mapRef.current;
+    if (!map) return;
+    for (const { isoName, centreCoords } of targets) {
+      if (markersRef.current.has(isoName)) continue;
+      const marker = L.marker(centreCoords, {
+        icon: MARKER_ICON,
+        // Decorative: never intercept a click meant for the country beneath.
+        interactive: false,
+        keyboard: false,
+      }).addTo(map);
+      markersRef.current.set(isoName, marker);
+    }
+  }, []);
+
+  const hideMarkers = useCallback(() => {
+    markersRef.current.forEach((marker) => marker.remove());
+    markersRef.current.clear();
+  }, []);
+
+  const resetView = useCallback(() => {
+    const map = mapRef.current;
+    const initialView = initialViewRef.current;
+    if (map && initialView) {
+      map.setView(initialView.center, initialView.zoom, { animate: false });
+    }
+  }, []);
+
+  return { containerRef, markGuessed, resetView, showMarkers, hideMarkers };
 }

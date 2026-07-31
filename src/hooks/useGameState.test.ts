@@ -6,7 +6,7 @@ import type { CountriesData } from '../data/countries';
 function feature(
   isoName: string,
   fullName: string,
-  alternativeNames?: string[],
+  alternativeNames: string[] = [],
 ) {
   return {
     type: 'Feature' as const,
@@ -15,6 +15,7 @@ function feature(
       fullName,
       alternativeNames,
       centreCoords: [0, 0] as [number, number],
+      capitalCity: '',
     },
     geometry: { type: 'Point' as const, coordinates: [0, 0] },
   };
