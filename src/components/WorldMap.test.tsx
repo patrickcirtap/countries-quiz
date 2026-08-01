@@ -579,22 +579,47 @@ describe('WorldMap', () => {
     await waitFor(() => expect(input).toHaveFocus());
   });
 
-  it('leaves focus on a hint line when it is clicked', async () => {
+  it('returns focus to the input when a hint is clicked', async () => {
     await renderReadyMap();
     clickCountry(0);
     const popup = popupInstance.setContent.mock.calls[0][0] as HTMLElement;
-    document.body.appendChild(popup);
+    // Leaflet renders popups inside the map container, which is where the
+    // refocus listener lives — put it there so the click actually reaches it.
+    screen.getByTestId('world-map').appendChild(popup);
     const hint = popup.querySelector('.country-popup-hint') as HTMLElement;
 
     const input = screen.getByRole('textbox', { name: /enter a country/i });
     input.blur();
     hint.focus();
-    fireEvent.click(hint);
+    // detail 1 marks a real pointer click; the keyboard reports 0.
+    fireEvent.click(hint, { detail: 1 });
 
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    // The click belongs to the popup, so the input must not steal focus back.
+    // Revealing a hint should not cost the player their place in the box.
+    expect(input).toHaveFocus();
+    popup.remove();
+  });
+
+  it('leaves focus on a hint activated from the keyboard', async () => {
+    await renderReadyMap();
+    clickCountry(0);
+    const popup = popupInstance.setContent.mock.calls[0][0] as HTMLElement;
+    screen.getByTestId('world-map').appendChild(popup);
+    const hint = popup.querySelector('.country-popup-hint') as HTMLElement;
+
+    const input = screen.getByRole('textbox', { name: /enter a country/i });
+    input.blur();
+    hint.focus();
+    // Enter or Space on a button fires a click with detail 0.
+    fireEvent.click(hint, { detail: 0 });
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    // Keyboard users stay put, so the second hint is one Tab away.
+    expect(hint).toHaveFocus();
     expect(input).not.toHaveFocus();
     popup.remove();
   });

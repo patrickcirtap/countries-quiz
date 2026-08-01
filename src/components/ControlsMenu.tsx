@@ -2,25 +2,25 @@ import { useEffect, useRef, useState } from 'react';
 
 interface ControlsMenuProps {
   onResetZoom: () => void;
-  namesOn: boolean;
+  isNamesOn: boolean;
   onToggleNames: () => void;
-  markersOn: boolean;
+  isMarkersOn: boolean;
   onToggleMarkers: () => void;
   onShowHint: () => void;
   onGiveUp: () => void;
   /** Given up or already won: there is nothing left to give up on. */
-  gameOver: boolean;
+  isGameOver: boolean;
 }
 
 export function ControlsMenu({
   onResetZoom,
-  namesOn,
+  isNamesOn,
   onToggleNames,
-  markersOn,
+  isMarkersOn,
   onToggleMarkers,
   onShowHint,
   onGiveUp,
-  gameOver,
+  isGameOver,
 }: ControlsMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -87,7 +87,7 @@ export function ControlsMenu({
             type="button"
             className="controls-menu-item"
             role="menuitemcheckbox"
-            aria-checked={namesOn}
+            aria-checked={isNamesOn}
             onClick={runAndClose(onToggleNames)}
           >
             Toggle names
@@ -98,7 +98,7 @@ export function ControlsMenu({
             type="button"
             className="controls-menu-item"
             role="menuitemcheckbox"
-            aria-checked={markersOn}
+            aria-checked={isMarkersOn}
             onClick={runAndClose(onToggleMarkers)}
           >
             Toggle markers
@@ -119,7 +119,7 @@ export function ControlsMenu({
             className="controls-menu-item controls-menu-item-danger"
             role="menuitem"
             onClick={runAndClose(onGiveUp)}
-            disabled={gameOver}
+            disabled={isGameOver}
           >
             Give up
           </button>

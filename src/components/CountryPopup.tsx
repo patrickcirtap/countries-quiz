@@ -5,22 +5,22 @@ interface CountryPopupProps {
   fullName: string;
   capitalCity: string;
   /** True once the answer may be shown outright: guessed, or the game is over. */
-  revealed: boolean;
+  isRevealed: boolean;
   onResize: () => void;
 }
 
 /**
  * Stacks the answer and the "???" placeholder in one grid cell so the line is
  * always as wide as the answer. The popup is therefore at its final width
- * before anything is revealed, and never grows when a hint is clicked.
+ * before anything is shown, and never grows when a hint is clicked.
  */
-function HintValue({ revealed, value }: { revealed: boolean; value: string }) {
+function HintValue({ isShown, value }: { isShown: boolean; value: string }) {
   return (
     <span className="country-popup-value">
-      <b className={revealed ? undefined : 'country-popup-value-hidden'}>
+      <b className={isShown ? undefined : 'country-popup-value-hidden'}>
         {value}
       </b>
-      <b className={revealed ? 'country-popup-value-hidden' : undefined}>???</b>
+      <b className={isShown ? 'country-popup-value-hidden' : undefined}>???</b>
     </span>
   );
 }
@@ -28,26 +28,28 @@ function HintValue({ revealed, value }: { revealed: boolean; value: string }) {
 export function CountryPopup({
   fullName,
   capitalCity,
-  revealed,
+  isRevealed,
   onResize,
 }: CountryPopupProps) {
-  const [nameShown, setNameShown] = useState(false);
-  const [capitalShown, setCapitalShown] = useState(false);
+  const [isNameShown, setIsNameShown] = useState(false);
+  const [isCapitalShown, setIsCapitalShown] = useState(false);
 
   // Leaflet measures the popup when it opens, which happens before React has
   // filled this node, so ask it to measure again once the content is in.
   useEffect(() => {
     onResize();
-  }, [revealed, onResize]);
+  }, [isRevealed, onResize]);
 
-  const capital = capitalCity || 'Unknown';
+  const isCapitalKnown = capitalCity !== '';
+  // Italic marks it as a stand-in rather than the name of a real city.
+  const capital = isCapitalKnown ? <b>{capitalCity}</b> : <i>Unknown</i>;
 
-  if (revealed) {
+  if (isRevealed) {
     return (
       <>
         <p className="country-popup-name">{fullName}</p>
         <p className="country-popup-line">
-          <i>Capital city</i>: <b>{capital}</b>
+          <i>Capital city</i>: {capital}
         </p>
       </>
     );
@@ -59,19 +61,26 @@ export function CountryPopup({
       <button
         type="button"
         className="country-popup-line country-popup-hint"
-        onClick={() => setNameShown(true)}
+        onClick={() => setIsNameShown(true)}
       >
         <i>First letter</i>:{' '}
-        <HintValue revealed={nameShown} value={firstLetterHint(fullName)} />
+        <HintValue isShown={isNameShown} value={firstLetterHint(fullName)} />
       </button>
-      <button
-        type="button"
-        className="country-popup-line country-popup-hint"
-        onClick={() => setCapitalShown(true)}
-      >
-        <i>Capital city</i>:{' '}
-        <HintValue revealed={capitalShown} value={capital} />
-      </button>
+      {isCapitalKnown ? (
+        <button
+          type="button"
+          className="country-popup-line country-popup-hint"
+          onClick={() => setIsCapitalShown(true)}
+        >
+          <i>Capital city</i>:{' '}
+          <HintValue isShown={isCapitalShown} value={capitalCity} />
+        </button>
+      ) : (
+        // Nothing to reveal, so say so rather than hide it behind a click.
+        <p className="country-popup-line">
+          <i>Capital city</i>: {capital}
+        </p>
+      )}
     </>
   );
 }

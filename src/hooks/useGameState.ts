@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CountriesData } from '../data/countries';
 import { normaliseString } from '../lib/normaliseString';
 
-export type GameStatus = 'loading' | 'ready' | 'error';
+type GameStatus = 'loading' | 'ready' | 'error';
 
 export interface GuessResult {
   isoName: string;
@@ -10,7 +10,7 @@ export interface GuessResult {
   centreCoords: [number, number];
 }
 
-export interface CountryGameState {
+interface CountryGameState {
   fullName: string;
   capitalCity: string;
   matchNames: Set<string>;

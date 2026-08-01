@@ -9,7 +9,7 @@ function renderPopup(overrides: Partial<Parameters<typeof CountryPopup>[0]>) {
     <CountryPopup
       fullName="France"
       capitalCity="Paris"
-      revealed={false}
+      isRevealed={false}
       onResize={onResize}
       {...overrides}
     />,
@@ -56,13 +56,13 @@ describe('CountryPopup', () => {
       ...container.querySelectorAll('.country-popup-value-hidden'),
     ].map((n) => n.textContent);
 
-    // The answers are laid out from the start, merely invisible.
+    // The answers are laid out from the start, just invisible.
     expect(hidden).toContain('F -  -  -  -  - ');
     expect(hidden).toContain('Paris');
   });
 
-  it('shows the answer outright when revealed', () => {
-    const { container } = renderPopup({ revealed: true });
+  it('shows the answer outright when isRevealed', () => {
+    const { container } = renderPopup({ isRevealed: true });
 
     expect(screen.getByText('France')).toBeInTheDocument();
     expect(screen.getByText('Paris')).toBeInTheDocument();
@@ -71,11 +71,27 @@ describe('CountryPopup', () => {
   });
 
   it('falls back to Unknown where no capital is recorded', () => {
-    renderPopup({ revealed: true, capitalCity: '' });
+    renderPopup({ isRevealed: true, capitalCity: '' });
     expect(screen.getByText('Unknown')).toBeInTheDocument();
   });
 
-  it('asks to be re-measured when it mounts and when revealed changes', () => {
+  it('shows Unknown outright rather than hiding it behind a hint', () => {
+    const { container } = renderPopup({ capitalCity: '' });
+
+    // Only the first-letter hint is left to click.
+    const hints = container.querySelectorAll('.country-popup-hint');
+    expect(hints).toHaveLength(1);
+    expect(hints[0].textContent).toContain('First letter');
+
+    const capitalLine = container.querySelector(
+      '.country-popup-line:not(.country-popup-hint)',
+    ) as HTMLElement;
+    expect(capitalLine.textContent).toContain('Capital city');
+    expect(capitalLine.textContent).toContain('Unknown');
+    expect(capitalLine.textContent).not.toContain('???');
+  });
+
+  it('asks to be re-measured when it mounts and when isRevealed changes', () => {
     const { rerender } = renderPopup({});
     expect(onResize).toHaveBeenCalledTimes(1);
 
@@ -83,7 +99,7 @@ describe('CountryPopup', () => {
       <CountryPopup
         fullName="France"
         capitalCity="Paris"
-        revealed
+        isRevealed
         onResize={onResize}
       />,
     );

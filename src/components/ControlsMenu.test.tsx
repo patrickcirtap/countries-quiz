@@ -12,17 +12,17 @@ let onToggleMarkers: Mock<() => void>;
 let onShowHint: Mock<() => void>;
 let onGiveUp: Mock<() => void>;
 
-function renderMenu(namesOn = true, markersOn = false, gameOver = false) {
+function renderMenu(isNamesOn = true, isMarkersOn = false, isGameOver = false) {
   return render(
     <ControlsMenu
       onResetZoom={onResetZoom}
-      namesOn={namesOn}
+      isNamesOn={isNamesOn}
       onToggleNames={onToggleNames}
-      markersOn={markersOn}
+      isMarkersOn={isMarkersOn}
       onToggleMarkers={onToggleMarkers}
       onShowHint={onShowHint}
       onGiveUp={onGiveUp}
-      gameOver={gameOver}
+      isGameOver={isGameOver}
     />,
   );
 }

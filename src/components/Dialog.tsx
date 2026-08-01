@@ -41,8 +41,8 @@ export function Dialog({ labelledBy, onDismiss, children }: DialogProps) {
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
       const active = document.activeElement;
-      const leaving = event.shiftKey ? active === first : active === last;
-      if (leaving || !dialog.contains(active)) {
+      const isLeaving = event.shiftKey ? active === first : active === last;
+      if (isLeaving || !dialog.contains(active)) {
         event.preventDefault();
         (event.shiftKey ? last : first).focus();
       }

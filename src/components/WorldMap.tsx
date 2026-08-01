@@ -47,15 +47,15 @@ export function WorldMap() {
     onPopupClose: () => setPopupIsoName(null),
   });
   const [input, setInput] = useState('');
-  const [namesOn, setNamesOn] = useState(true);
-  const [markersOn, setMarkersOn] = useState(false);
-  const [hintOpen, setHintOpen] = useState(false);
-  const [confirmGiveUp, setConfirmGiveUp] = useState(false);
-  const [hasGivenUp, setHasGivenUp] = useState(false);
-  const [completionSeen, setCompletionSeen] = useState(false);
+  const [isNamesOn, setIsNamesOn] = useState(true);
+  const [isMarkersOn, setIsMarkersOn] = useState(false);
+  const [isHintOpen, setIsHintOpen] = useState(false);
+  const [isConfirmingGiveUp, setIsConfirmingGiveUp] = useState(false);
+  const [isGivenUp, setIsGivenUp] = useState(false);
+  const [isCompletionSeen, setIsCompletionSeen] = useState(false);
 
   // Derived, not stored: no effect is needed to notice the game is won.
-  const isComplete = total > 0 && guessedCount === total && !hasGivenUp;
+  const isComplete = total > 0 && guessedCount === total && !isGivenUp;
   const popupCountry = popupIsoName ? countries[popupIsoName] : null;
 
   const submitGuess = (value: string) => {
@@ -72,7 +72,7 @@ export function WorldMap() {
 
   const rootClasses = ['map-root'];
   if (Browser.touch) rootClasses.push('map-root-touch');
-  if (!namesOn) rootClasses.push('map-root-hide-labels');
+  if (!isNamesOn) rootClasses.push('map-root-hide-labels');
 
   return (
     <div className={rootClasses.join(' ')}>
@@ -104,7 +104,7 @@ export function WorldMap() {
             runGuess(value);
           }}
           maxLength={50}
-          disabled={hasGivenUp}
+          disabled={isGivenUp}
           autoFocus
         />
       </form>
@@ -113,48 +113,48 @@ export function WorldMap() {
           resetView();
           focusInputOnDesktop();
         }}
-        namesOn={namesOn}
+        isNamesOn={isNamesOn}
         onToggleNames={() => {
-          setNamesOn((on) => !on);
+          setIsNamesOn((on) => !on);
           focusInputOnDesktop();
         }}
-        markersOn={markersOn}
+        isMarkersOn={isMarkersOn}
         onToggleMarkers={() => {
-          const next = !markersOn;
-          setMarkersOn(next);
-          if (next) showMarkers(unguessed);
+          const isTurningOn = !isMarkersOn;
+          setIsMarkersOn(isTurningOn);
+          if (isTurningOn) showMarkers(unguessed);
           else hideMarkers();
           focusInputOnDesktop();
         }}
-        onShowHint={() => setHintOpen(true)}
-        onGiveUp={() => setConfirmGiveUp(true)}
-        gameOver={hasGivenUp || isComplete}
+        onShowHint={() => setIsHintOpen(true)}
+        onGiveUp={() => setIsConfirmingGiveUp(true)}
+        isGameOver={isGivenUp || isComplete}
       />
       <div className="counter" data-testid="counter" aria-live="polite">
         {guessedCount} / {total}
       </div>
-      {hintOpen && (
+      {isHintOpen && (
         <HintDialog
           onClose={() => {
-            setHintOpen(false);
+            setIsHintOpen(false);
             focusInputOnDesktop();
           }}
         />
       )}
-      {confirmGiveUp && (
+      {isConfirmingGiveUp && (
         <ConfirmDialog
           message="Are you sure you want to give up?"
           onCancel={() => {
-            setConfirmGiveUp(false);
+            setIsConfirmingGiveUp(false);
             focusInputOnDesktop();
           }}
           onConfirm={() => {
-            setConfirmGiveUp(false);
+            setIsConfirmingGiveUp(false);
             // A guess still waiting out its debounce would land after the game
             // has ended, painting a revealed country red.
             cancelGuess();
-            setHasGivenUp(true);
-            setMarkersOn(true);
+            setIsGivenUp(true);
+            setIsMarkersOn(true);
             revealRemaining(unguessed);
           }}
         />
@@ -167,13 +167,13 @@ export function WorldMap() {
             fullName={popupCountry.fullName}
             capitalCity={popupCountry.capitalCity}
             // Giving up reveals the answers without marking anything guessed.
-            revealed={popupCountry.isGuessed || hasGivenUp}
+            isRevealed={popupCountry.isGuessed || isGivenUp}
             onResize={refreshPopup}
           />,
           popupNode,
         )}
-      {isComplete && !completionSeen && (
-        <CompletionDialog onClose={() => setCompletionSeen(true)} />
+      {isComplete && !isCompletionSeen && (
+        <CompletionDialog onClose={() => setIsCompletionSeen(true)} />
       )}
       {status !== 'ready' && (
         <div className="map-overlay" role="status">

@@ -8,7 +8,7 @@ interface GuessedLabel {
   centreCoords: [number, number];
 }
 
-export interface CountryTarget extends GuessedLabel {
+interface CountryTarget extends GuessedLabel {
   isoName: string;
 }
 
@@ -117,14 +117,17 @@ export function useWorldMap(
       // Leaflet's zoom buttons refocus the map on click; defer so we win the focus.
       setTimeout(() => onMapInteractionRef.current?.(), 0);
     };
-    const handleMapClick = (event: MouseEvent) => {
-      // A hint line owns its own click: taking focus away would drop keyboard
-      // users out of the popup they just acted in.
+    // Popup clicks count too, so revealing a hint returns focus to the input.
+    const handleContainerClick = (event: MouseEvent) => {
+      // Activating a button from the keyboard fires a click with detail 0. Do
+      // not pull focus away then, or a keyboard user is thrown out of the
+      // popup and has to tab back for the second hint.
       const target = event.target as Element | null;
-      if (target?.closest?.('.country-popup-hint')) return;
+      if (event.detail === 0 && target?.closest?.('.country-popup-hint'))
+        return;
       notifyInteraction();
     };
-    container.addEventListener('click', handleMapClick, true);
+    container.addEventListener('click', handleContainerClick, true);
     // Scroll-wheel and keyboard zooming never produce a click, so cover zoom
     // separately — the original app refocused on any zoom too.
     map.on('zoom', notifyInteraction);
@@ -149,7 +152,7 @@ export function useWorldMap(
     map.on('popupclose', handlePopupClose);
 
     return () => {
-      container.removeEventListener('click', handleMapClick, true);
+      container.removeEventListener('click', handleContainerClick, true);
       map.off('zoom', notifyInteraction);
       map.off('popupclose', handlePopupClose);
       map.remove();
