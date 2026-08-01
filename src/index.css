@@ -38,6 +38,11 @@ body {
   background: #d3e7ff; /* ocean, shown until Leaflet initialises */
 }
 
+/* Wraps the input only so Enter submits; the input positions itself. */
+.country-form {
+  margin: 0;
+}
+
 .country-input {
   position: absolute;
   top: 10px;

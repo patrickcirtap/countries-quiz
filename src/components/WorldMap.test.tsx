@@ -528,6 +528,107 @@ describe('WorldMap', () => {
     expect(event.defaultPrevented).toBe(true);
   });
 
+  it('checks the guess immediately on Enter, skipping the debounce', async () => {
+    await renderReadyMap();
+    const input = screen.getByRole('textbox', { name: /enter a country/i });
+
+    fireEvent.change(input, { target: { value: 'France' } });
+    // No waiting: submitting resolves it there and then.
+    fireEvent.submit(input.closest('form') as HTMLFormElement);
+
+    expect(screen.getByTestId('counter')).toHaveTextContent('1 / 3');
+    expect(input).toHaveValue('');
+  });
+
+  it('does nothing on Enter when the guess matches no country', async () => {
+    await renderReadyMap();
+    const input = screen.getByRole('textbox', { name: /enter a country/i });
+
+    fireEvent.change(input, { target: { value: 'Narnia' } });
+    fireEvent.submit(input.closest('form') as HTMLFormElement);
+
+    expect(screen.getByTestId('counter')).toHaveTextContent('0 / 3');
+    // A wrong guess is left in place to be corrected.
+    expect(input).toHaveValue('Narnia');
+  });
+
+  it('does not double-count when the debounce lands after Enter', async () => {
+    await renderReadyMap();
+    const input = screen.getByRole('textbox', { name: /enter a country/i });
+
+    fireEvent.change(input, { target: { value: 'France' } });
+    fireEvent.submit(input.closest('form') as HTMLFormElement);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    });
+
+    expect(screen.getByTestId('counter')).toHaveTextContent('1 / 3');
+  });
+
+  it('refocuses the input when the map is zoomed', async () => {
+    await renderReadyMap();
+    const input = screen.getByRole('textbox', { name: /enter a country/i });
+    input.blur();
+
+    const zoomHandler = mapInstance.on.mock.calls.find(
+      ([event]) => event === 'zoom',
+    )?.[1] as () => void;
+    expect(zoomHandler).toBeTypeOf('function');
+    act(() => zoomHandler());
+
+    await waitFor(() => expect(input).toHaveFocus());
+  });
+
+  it('leaves focus on a hint line when it is clicked', async () => {
+    await renderReadyMap();
+    clickCountry(0);
+    const popup = popupInstance.setContent.mock.calls[0][0] as HTMLElement;
+    document.body.appendChild(popup);
+    const hint = popup.querySelector('.country-popup-hint') as HTMLElement;
+
+    const input = screen.getByRole('textbox', { name: /enter a country/i });
+    input.blur();
+    hint.focus();
+    fireEvent.click(hint);
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    // The click belongs to the popup, so the input must not steal focus back.
+    expect(input).not.toHaveFocus();
+    popup.remove();
+  });
+
+  it('forgets the open country when the popup closes', async () => {
+    await renderReadyMap();
+    clickCountry(0);
+    const popup = popupInstance.setContent.mock.calls[0][0] as HTMLElement;
+    expect(popup.textContent).toContain('Click for hints:');
+
+    const closeHandler = mapInstance.on.mock.calls.find(
+      ([event]) => event === 'popupclose',
+    )?.[1] as () => void;
+    act(() => closeHandler());
+
+    expect(popup.textContent).toBe('');
+  });
+
+  it('disables give up once every country is named', async () => {
+    await renderReadyMap();
+    const input = screen.getByRole('textbox', { name: /enter a country/i });
+    for (const name of ['France', 'Brazil', 'America']) {
+      fireEvent.change(input, { target: { value: name } });
+      fireEvent.submit(input.closest('form') as HTMLFormElement);
+    }
+    expect(screen.getByTestId('counter')).toHaveTextContent('3 / 3');
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    fireEvent.click(
+      screen.getByRole('button', { name: /additional options/i }),
+    );
+    expect(screen.getByRole('menuitem', { name: /give up/i })).toBeDisabled();
+  });
+
   it('marks a country and updates the counter when guessed correctly', async () => {
     await renderReadyMap();
     expect(screen.getByTestId('counter')).toHaveTextContent('0 / 3');

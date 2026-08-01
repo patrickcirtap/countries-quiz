@@ -47,6 +47,45 @@ afterEach(() => {
 });
 
 describe('useGameState', () => {
+  it('ignores a response that lands after unmount', async () => {
+    let settle!: (response: unknown) => void;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => new Promise((resolve) => (settle = resolve))),
+    );
+
+    const { result, unmount } = renderHook(() => useGameState());
+    unmount();
+    await act(async () => {
+      settle({ ok: true, json: () => Promise.resolve(MOCK_DATA) });
+      await Promise.resolve();
+    });
+
+    // The abort guard means the late response never becomes state.
+    expect(result.current.status).toBe('loading');
+    expect(result.current.total).toBe(0);
+  });
+
+  it('ignores a failure that lands after unmount', async () => {
+    let fail!: (reason: unknown) => void;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => new Promise((_resolve, reject) => (fail = reject))),
+    );
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const { result, unmount } = renderHook(() => useGameState());
+    unmount();
+    await act(async () => {
+      fail(new Error('offline'));
+      await Promise.resolve();
+    });
+
+    expect(result.current.status).toBe('loading');
+    expect(errorSpy).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
   it('loads the data and starts with nothing guessed', async () => {
     const { result } = renderHook(() => useGameState());
     await waitFor(() => expect(result.current.status).toBe('ready'));

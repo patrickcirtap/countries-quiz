@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useRef } from 'react';
 
+/**
+ * Returns `[run, cancel]`. `cancel` drops a run that is still waiting, for when
+ * the same action is taken directly instead.
+ */
 export function useDebouncedCallback<A extends unknown[]>(
   callback: (...args: A) => void,
   delayMs: number,
-): (...args: A) => void {
+): [(...args: A) => void, () => void] {
   const callbackRef = useRef(callback);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
@@ -17,7 +21,7 @@ export function useDebouncedCallback<A extends unknown[]>(
     return () => clearTimeout(timeoutRef.current);
   }, []);
 
-  return useCallback(
+  const run = useCallback(
     (...args: A) => {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = setTimeout(() => {
@@ -26,4 +30,8 @@ export function useDebouncedCallback<A extends unknown[]>(
     },
     [delayMs],
   );
+
+  const cancel = useCallback(() => clearTimeout(timeoutRef.current), []);
+
+  return [run, cancel];
 }

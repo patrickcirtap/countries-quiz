@@ -37,7 +37,7 @@ export function WorldMap() {
     openPopup,
     refreshPopup,
   } = useWorldMap(data, {
-    onMapClick: focusInputOnDesktop,
+    onMapInteraction: focusInputOnDesktop,
     onCountryClick: (isoName, latlng) => {
       setPopupIsoName(isoName);
       // Opened here rather than in an effect so Leaflet has the click position;
@@ -58,13 +58,17 @@ export function WorldMap() {
   const isComplete = total > 0 && guessedCount === total && !hasGivenUp;
   const popupCountry = popupIsoName ? countries[popupIsoName] : null;
 
-  const runGuess = useDebouncedCallback((value: string) => {
+  const submitGuess = (value: string) => {
     const hit = guess(value);
     if (hit) {
       markGuessed(hit.isoName, hit);
       setInput('');
     }
-  }, DEBOUNCE_MS);
+  };
+  const [runGuess, cancelGuess] = useDebouncedCallback(
+    submitGuess,
+    DEBOUNCE_MS,
+  );
 
   const rootClasses = ['map-root'];
   if (Browser.touch) rootClasses.push('map-root-touch');
@@ -78,22 +82,32 @@ export function WorldMap() {
         data-testid="world-map"
         aria-label="World map"
       />
-      <input
-        ref={inputRef}
-        className="country-input"
-        type="text"
-        placeholder="Enter a country..."
-        aria-label="Enter a country"
-        value={input}
-        onChange={(event) => {
-          const value = event.target.value;
-          setInput(value);
-          runGuess(value);
+      <form
+        className="country-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          // Enter checks straight away, so drop the run already waiting.
+          cancelGuess();
+          submitGuess(input);
         }}
-        maxLength={50}
-        disabled={hasGivenUp}
-        autoFocus
-      />
+      >
+        <input
+          ref={inputRef}
+          className="country-input"
+          type="text"
+          placeholder="Enter a country..."
+          aria-label="Enter a country"
+          value={input}
+          onChange={(event) => {
+            const value = event.target.value;
+            setInput(value);
+            runGuess(value);
+          }}
+          maxLength={50}
+          disabled={hasGivenUp}
+          autoFocus
+        />
+      </form>
       <ControlsMenu
         onResetZoom={() => {
           resetView();
@@ -114,7 +128,7 @@ export function WorldMap() {
         }}
         onShowHint={() => setHintOpen(true)}
         onGiveUp={() => setConfirmGiveUp(true)}
-        hasGivenUp={hasGivenUp}
+        gameOver={hasGivenUp || isComplete}
       />
       <div className="counter" data-testid="counter" aria-live="polite">
         {guessedCount} / {total}
@@ -136,6 +150,9 @@ export function WorldMap() {
           }}
           onConfirm={() => {
             setConfirmGiveUp(false);
+            // A guess still waiting out its debounce would land after the game
+            // has ended, painting a revealed country red.
+            cancelGuess();
             setHasGivenUp(true);
             setMarkersOn(true);
             revealRemaining(unguessed);

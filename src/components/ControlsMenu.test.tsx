@@ -12,7 +12,7 @@ let onToggleMarkers: Mock<() => void>;
 let onShowHint: Mock<() => void>;
 let onGiveUp: Mock<() => void>;
 
-function renderMenu(namesOn = true, markersOn = false, hasGivenUp = false) {
+function renderMenu(namesOn = true, markersOn = false, gameOver = false) {
   return render(
     <ControlsMenu
       onResetZoom={onResetZoom}
@@ -22,7 +22,7 @@ function renderMenu(namesOn = true, markersOn = false, hasGivenUp = false) {
       onToggleMarkers={onToggleMarkers}
       onShowHint={onShowHint}
       onGiveUp={onGiveUp}
-      hasGivenUp={hasGivenUp}
+      gameOver={gameOver}
     />,
   );
 }
@@ -69,7 +69,7 @@ describe('ControlsMenu', () => {
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
   });
 
-  it('disables give up once the game is over', () => {
+  it('disables give up once the game is over (given up or won)', () => {
     renderMenu(true, false, true);
     openMenu();
 

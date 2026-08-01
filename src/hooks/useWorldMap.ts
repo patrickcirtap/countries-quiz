@@ -13,7 +13,8 @@ export interface CountryTarget extends GuessedLabel {
 }
 
 interface UseWorldMapOptions {
-  onMapClick?: () => void;
+  /** Fired when the user interacts with the map itself (click or zoom). */
+  onMapInteraction?: () => void;
   onCountryClick?: (isoName: string, latlng: L.LatLng) => void;
   onPopupClose?: () => void;
 }
@@ -71,10 +72,10 @@ const REVEALED_STYLE: L.PathOptions = {
 
 export function useWorldMap(
   data: CountriesData | null,
-  { onMapClick, onCountryClick, onPopupClose }: UseWorldMapOptions = {},
+  { onMapInteraction, onCountryClick, onPopupClose }: UseWorldMapOptions = {},
 ) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const onMapClickRef = useRef(onMapClick);
+  const onMapInteractionRef = useRef(onMapInteraction);
   const onCountryClickRef = useRef(onCountryClick);
   const onPopupCloseRef = useRef(onPopupClose);
   const mapRef = useRef<L.Map | null>(null);
@@ -87,10 +88,10 @@ export function useWorldMap(
   );
 
   useEffect(() => {
-    onMapClickRef.current = onMapClick;
+    onMapInteractionRef.current = onMapInteraction;
     onCountryClickRef.current = onCountryClick;
     onPopupCloseRef.current = onPopupClose;
-  }, [onMapClick, onCountryClick, onPopupClose]);
+  }, [onMapInteraction, onCountryClick, onPopupClose]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -112,11 +113,21 @@ export function useWorldMap(
     // so a repeat call animates and the follow-up zoomIn reads a stale zoom.
     initialViewRef.current = { center: map.getCenter(), zoom: map.getZoom() };
 
-    const handleMapClick = () => {
+    const notifyInteraction = () => {
       // Leaflet's zoom buttons refocus the map on click; defer so we win the focus.
-      setTimeout(() => onMapClickRef.current?.(), 0);
+      setTimeout(() => onMapInteractionRef.current?.(), 0);
+    };
+    const handleMapClick = (event: MouseEvent) => {
+      // A hint line owns its own click: taking focus away would drop keyboard
+      // users out of the popup they just acted in.
+      const target = event.target as Element | null;
+      if (target?.closest?.('.country-popup-hint')) return;
+      notifyInteraction();
     };
     container.addEventListener('click', handleMapClick, true);
+    // Scroll-wheel and keyboard zooming never produce a click, so cover zoom
+    // separately — the original app refocused on any zoom too.
+    map.on('zoom', notifyInteraction);
 
     const layers = layersRef.current;
     const labels = labelsRef.current;
@@ -139,6 +150,7 @@ export function useWorldMap(
 
     return () => {
       container.removeEventListener('click', handleMapClick, true);
+      map.off('zoom', notifyInteraction);
       map.off('popupclose', handlePopupClose);
       map.remove();
       mapRef.current = null;

@@ -24,7 +24,7 @@ function buildCountries(data: CountriesData): Countries {
   const countries: Countries = {};
   for (const feature of data.features) {
     const p = feature.properties;
-    const names = [p.fullName, ...(p.alternativeNames ?? [])];
+    const names = [p.fullName, ...p.alternativeNames];
     countries[p.isoName] = {
       fullName: p.fullName,
       capitalCity: p.capitalCity,
